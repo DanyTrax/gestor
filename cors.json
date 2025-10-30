@@ -1,0 +1,21 @@
+[
+  {
+    "origin": [
+      "http://clients.dowgroupcol.com",
+      "https://clients.dowgroupcol.com",
+      "http://localhost:3000"
+    ],
+    "method": ["GET", "POST", "PUT", "HEAD", "DELETE", "OPTIONS"],
+    "responseHeader": [
+      "Content-Type",
+      "Authorization",
+      "x-goog-meta-*",
+      "x-goog-resumable",
+      "x-goog-upload-*",
+      "Origin"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]
+
+
