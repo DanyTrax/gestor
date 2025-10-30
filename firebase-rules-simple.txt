@@ -1,0 +1,19 @@
+// Reglas SIMPLES de Firestore para DESARROLLO
+// ⚠️ SOLO PARA DESARROLLO - NO USAR EN PRODUCCIÓN
+// Copia estas reglas en la consola de Firebase > Firestore > Rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Permitir todo para usuarios autenticados (SOLO DESARROLLO)
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+
+
+
+
+
