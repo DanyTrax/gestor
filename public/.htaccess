@@ -1,0 +1,15 @@
+RewriteEngine On
+
+# Sirve archivos/directorios existentes
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Enrutado SPA: todo lo demás a index.html
+RewriteRule . /index.html [L]
+
+# Tipos MIME (por si el servidor no los define correctamente)
+AddType application/javascript .js .mjs
+AddType text/css .css
+AddType image/svg+xml .svg
+
