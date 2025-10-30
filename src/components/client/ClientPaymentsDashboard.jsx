@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { collection, onSnapshot, query, where, orderBy, doc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, appId, storage } from '../../config/firebase';
+import { db, appId } from '../../config/firebase';
 import { CreditCardIcon, SearchIcon, EyeIcon, TrashIcon } from '../icons';
 import BankTransferInstructions from '../payments/BankTransferInstructions';
 
@@ -440,14 +439,20 @@ function ClientPaymentsDashboard({ user, isDemo, userProfile }) {
     }
     try {
       setUploadingProofById(prev => ({ ...prev, [payment.id]: true }));
-      const safeName = (file.name || 'comprobante').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `artifacts/${appId}/public/data/payments/${payment.id}/proof-${Date.now()}-${safeName}`;
-      const storageRef = ref(storage, path);
-      const task = uploadBytesResumable(storageRef, file);
-      await new Promise((resolve, reject) => {
-        task.on('state_changed', () => {}, reject, resolve);
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/upload.php', {
+        method: 'POST',
+        body: form,
       });
-      const url = await getDownloadURL(task.snapshot.ref);
+      if (!res.ok) {
+        throw new Error(`upload_failed_${res.status}`);
+      }
+      const data = await res.json();
+      const url = data?.url;
+      if (!url) {
+        throw new Error('missing_url');
+      }
       const paymentRef = doc(db, 'artifacts', appId, 'public', 'data', 'payments', payment.id);
       await updateDoc(paymentRef, { proofUrl: url, proofUploadedAt: new Date() });
       // Actualizar UI local inmediata
