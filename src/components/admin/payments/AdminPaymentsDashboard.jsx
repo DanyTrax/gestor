@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
-import { CreditCardIcon, SearchIcon, FilterIcon, SettingsIcon, CheckIcon, XIcon, CalendarIcon, EyeIcon, TrashIcon } from '../../icons';
+import { CreditCardIcon, SearchIcon, FilterIcon, SettingsIcon, CalendarIcon, EyeIcon, TrashIcon } from '../../icons';
 import ActionDropdown from '../../common/ActionDropdown';
 import PaymentConfigDashboard from './PaymentConfigDashboard';
-import PaymentMessageModal from './PaymentMessageModal';
 import RenewalConfigDashboard from './RenewalConfigDashboard';
+import { jsPDF } from 'jspdf';
 
 function AdminPaymentsDashboard({ isDemo, userRole }) {
   const { addNotification } = useNotification();
@@ -17,8 +17,6 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
   const [gatewayFilter, setGatewayFilter] = useState('Todos');
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState('history');
-  const [messageModalOpen, setMessageModalOpen] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState(null);
   const [proofModalOpen, setProofModalOpen] = useState(false);
 
   const paymentStatusOptions = ['Todos', 'Pendiente', 'Procesando', 'Completado', 'Fallido', 'Cancelado', 'Reembolsado'];
@@ -137,96 +135,12 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
     return matchesSearch && matchesStatus && matchesGateway;
   });
 
-  const handleStatusChange = async (paymentId, newStatus) => {
-    if (isDemo) {
-      addNotification("Función no disponible en modo demo", "error");
-      return;
-    }
-
-    try {
-      const paymentRef = doc(db, 'artifacts', appId, 'public', 'data', 'payments', paymentId);
-      await updateDoc(paymentRef, { 
-        status: newStatus,
-        updatedAt: new Date(),
-        ...(newStatus === 'Completado' ? { completedAt: Timestamp.now() } : {})
-      });
-
-      // Si el pago quedó Completado y es de renovación, actualizar fechas del servicio
-      if (newStatus === 'Completado') {
-        const snap = await getDoc(paymentRef);
-        if (snap.exists()) {
-          const payment = snap.data();
-          const serviceId = payment.serviceId;
-          if (serviceId && (payment.isRenewal || payment.paymentType === 'Renovación')) {
-            try {
-              const serviceRef = doc(db, 'artifacts', appId, 'public', 'data', 'services', serviceId);
-              const updates = {};
-              if (payment.startDate) updates.dueDate = payment.startDate; // Timestamp
-              if (payment.endDate) updates.expirationDate = payment.endDate; // Timestamp
-              updates.status = 'Pago';
-              updates.updatedAt = Timestamp.now();
-              await updateDoc(serviceRef, updates);
-            } catch (e) {
-              console.error('Error updating service after completed payment:', e);
-            }
-          }
-        }
-      }
-
-      addNotification(`Estado del pago actualizado a ${newStatus}`, "success");
-    } catch (error) {
-      console.error("Error updating payment status:", error);
-      addNotification("Error al actualizar el estado del pago", "error");
-    }
-  };
-
-  const handleSendMessage = (payment, messageType) => {
-    setSelectedPayment({ ...payment, _messageType: messageType });
-    setMessageModalOpen(true);
-  };
-
-  // Generar y descargar invoice
-  const downloadInvoice = (payment) => {
-    const invoiceHTML = generateInvoiceHTML(payment);
-
-    // Crear y descargar el archivo
-    const blob = new Blob([invoiceHTML], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `invoice-INV-${payment.id.slice(-8).toUpperCase()}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    addNotification('Invoice descargado exitosamente', 'success');
-  };
-
-  // Eliminar pago
-  const handleDeletePayment = async (paymentId) => {
-    if (isDemo) {
-      addNotification("Función no disponible en modo demo", "error");
-      return;
-    }
-
-    if (window.confirm('¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.')) {
-      try {
-        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'payments', paymentId));
-        addNotification('Pago eliminado exitosamente', 'success');
-      } catch (error) {
-        console.error('Error deleting payment:', error);
-        addNotification('Error al eliminar el pago', 'error');
-      }
-    }
-  };
-
-  // Función para generar HTML del invoice (sin template strings para evitar problemas de scope)
-  const generateInvoiceHTML = (payment) => {
+  // Función para generar PDF del invoice
+  const generateInvoicePDF = (payment) => {
     try {
       if (!payment || !payment.id) {
         console.error('Payment inválido para generar invoice:', payment);
-        return '<html><body><p>Error: Datos de pago incompletos</p></body></html>';
+        return;
       }
 
       const paymentId = String(payment.id || '');
@@ -240,148 +154,150 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
       const invoiceDescription = String(payment.description || 'Descripción del servicio');
       const invoiceAmount = Number(payment.amount || 0);
       const invoiceCurrency = String(payment.currency || 'USD');
-      const invoiceStatus = 'Completado';
       const invoiceGateway = String(payment.gateway || 'N/A');
       const invoiceTransactionId = String(payment.transactionId || 'N/A');
       const invoicePaymentMethod = String(payment.paymentMethod || 'N/A');
-      const invoiceStatusClass = 'completado';
       const invoiceAmountFormatted = invoiceAmount.toFixed(2);
-      const transactionIdHtml = invoiceTransactionId !== 'N/A' ? '<p>ID de Transacción: ' + invoiceTransactionId + '</p>' : '';
 
-      // Construir HTML usando concatenación en lugar de template strings
-      const htmlParts = [
-        '<!DOCTYPE html>',
-        '<html>',
-        '<head>',
-        '<meta charset="UTF-8">',
-        '<title>Invoice ' + invoiceNumber + '</title>',
-        '<style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; } .invoice { background: white; max-width: 800px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); } .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e5e5e5; padding-bottom: 20px; } .company-name { font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 5px; } .invoice-title { font-size: 18px; color: #666; } .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; } .client-info, .invoice-info { flex: 1; } .client-info h3, .invoice-info h3 { margin: 0 0 10px 0; color: #333; font-size: 16px; } .client-info p, .invoice-info p { margin: 5px 0; color: #666; font-size: 14px; } .service-details { margin-bottom: 30px; } .service-table { width: 100%; border-collapse: collapse; margin-top: 15px; } .service-table th, .service-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e5e5; } .service-table th { background: #f8f9fa; font-weight: bold; color: #333; } .service-table .amount { text-align: right; font-weight: bold; } .total { text-align: right; margin-top: 20px; } .total-amount { font-size: 20px; font-weight: bold; color: #2563eb; } .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; } .status.completado { background: #d1fae5; color: #065f46; } .status.pendiente { background: #fef3c7; color: #92400e; } .status.fallido { background: #fee2e2; color: #991b1b; } .status.cancelado { background: #f3f4f6; color: #374151; } .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #e5e5e5; padding-top: 20px; }</style>',
-        '</head>',
-        '<body>',
-        '<div class="invoice">',
-        '<div class="header">',
-        '<div class="company-name">Gestor de Cobros</div>',
-        '<div class="invoice-title">FACTURA</div>',
-        '</div>',
-        '<div class="invoice-details">',
-        '<div class="client-info">',
-        '<h3>Cliente</h3>',
-        '<p><strong>' + invoiceClientName + '</strong></p>',
-        '<p>' + invoiceClientEmail + '</p>',
-        '</div>',
-        '<div class="invoice-info">',
-        '<h3>Detalles de la Factura</h3>',
-        '<p><strong>Número:</strong> ' + invoiceNumber + '</p>',
-        '<p><strong>Fecha:</strong> ' + invoiceDate + '</p>',
-        '<p><strong>Vencimiento:</strong> ' + invoiceDueDate + '</p>',
-        '<p><strong>Estado:</strong> <span class="status ' + invoiceStatusClass + '">' + invoiceStatus + '</span></p>',
-        '</div>',
-        '</div>',
-        '<div class="service-details">',
-        '<h3>Detalles del Servicio</h3>',
-        '<table class="service-table">',
-        '<thead>',
-        '<tr><th>Servicio</th><th>Descripción</th><th>Monto</th></tr>',
-        '</thead>',
-        '<tbody>',
-        '<tr>',
-        '<td>' + invoiceServiceType + '</td>',
-        '<td>' + invoiceDescription + '</td>',
-        '<td class="amount">' + invoiceCurrency + ' ' + invoiceAmountFormatted + '</td>',
-        '</tr>',
-        '</tbody>',
-        '</table>',
-        '</div>',
-        '<div class="total">',
-        '<div class="total-amount">Total: ' + invoiceCurrency + ' ' + invoiceAmountFormatted + '</div>',
-        '</div>',
-        '<div class="footer">',
-        '<p>Método de Pago: ' + invoicePaymentMethod + '</p>',
-        '<p>Gateway: ' + invoiceGateway + '</p>',
-        transactionIdHtml,
-        '<p>Gracias por su negocio</p>',
-        '</div>',
-        '</div>',
-        '</body>',
-        '</html>'
-      ];
+      const pdf = new jsPDF();
+      let yPos = 20;
 
-      return htmlParts.join('');
+      // Header
+      pdf.setFontSize(24);
+      pdf.setTextColor(37, 99, 235); // Blue
+      pdf.text('Gestor de Cobros', 105, yPos, { align: 'center' });
+      yPos += 10;
+      pdf.setFontSize(18);
+      pdf.setTextColor(102, 102, 102);
+      pdf.text('FACTURA', 105, yPos, { align: 'center' });
+      yPos += 20;
+
+      // Invoice details
+      pdf.setFontSize(12);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont(undefined, 'bold');
+      pdf.text('Cliente:', 20, yPos);
+      pdf.setFont(undefined, 'normal');
+      pdf.text(invoiceClientName, 60, yPos);
+      yPos += 7;
+      pdf.text(invoiceClientEmail, 60, yPos);
+      yPos += 15;
+
+      pdf.setFont(undefined, 'bold');
+      pdf.text('Detalles de la Factura:', 20, yPos);
+      yPos += 7;
+      pdf.setFont(undefined, 'normal');
+      pdf.text('Número: ' + invoiceNumber, 20, yPos);
+      yPos += 7;
+      pdf.text('Fecha: ' + invoiceDate, 20, yPos);
+      yPos += 7;
+      pdf.text('Vencimiento: ' + invoiceDueDate, 20, yPos);
+      yPos += 7;
+      pdf.text('Estado: Completado', 20, yPos);
+      yPos += 15;
+
+      // Service details
+      pdf.setFont(undefined, 'bold');
+      pdf.text('Detalles del Servicio:', 20, yPos);
+      yPos += 10;
+
+      // Table header
+      pdf.setFillColor(248, 249, 250);
+      pdf.rect(20, yPos - 5, 170, 8, 'F');
+      pdf.setFont(undefined, 'bold');
+      pdf.text('Servicio', 25, yPos);
+      pdf.text('Descripción', 70, yPos);
+      pdf.text('Monto', 165, yPos, { align: 'right' });
+      yPos += 10;
+
+      // Table row
+      pdf.setFont(undefined, 'normal');
+      pdf.text(invoiceServiceType, 25, yPos);
+      pdf.text(invoiceDescription.substring(0, 35), 70, yPos);
+      pdf.text(invoiceCurrency + ' ' + invoiceAmountFormatted, 165, yPos, { align: 'right' });
+      yPos += 20;
+
+      // Total
+      pdf.setFontSize(16);
+      pdf.setFont(undefined, 'bold');
+      pdf.setTextColor(37, 99, 235);
+      pdf.text('Total: ' + invoiceCurrency + ' ' + invoiceAmountFormatted, 165, yPos, { align: 'right' });
+      yPos += 20;
+
+      // Footer
+      pdf.setFontSize(10);
+      pdf.setTextColor(102, 102, 102);
+      pdf.setFont(undefined, 'normal');
+      pdf.text('Método de Pago: ' + invoicePaymentMethod, 20, yPos);
+      yPos += 6;
+      pdf.text('Gateway: ' + invoiceGateway, 20, yPos);
+      yPos += 6;
+      if (invoiceTransactionId !== 'N/A') {
+        pdf.text('ID de Transacción: ' + invoiceTransactionId, 20, yPos);
+        yPos += 6;
+      }
+      pdf.text('Gracias por su negocio', 105, yPos, { align: 'center' });
+
+      // Guardar PDF
+      pdf.save('invoice-' + invoiceNumber + '.pdf');
+      return pdf;
     } catch (error) {
-      console.error('Error en generateInvoiceHTML:', error);
-      return '<html><body><p>Error generando factura</p></body></html>';
+      console.error('Error generando PDF:', error);
+      addNotification('Error al generar el PDF del invoice', 'error');
+      return null;
     }
   };
 
-  const handleMessageSend = async (messageData) => {
+  const handleStatusChange = async (paymentId, newStatus) => {
     if (isDemo) {
-      addNotification("Mensaje enviado (modo demo)", "success");
+      addNotification("Función no disponible en modo demo", "error");
       return;
     }
 
     try {
-      const payment = selectedPayment;
-      if (!payment || !payment.id) {
-        addNotification("No se encontró el pago seleccionado o falta el ID", "error");
+      const paymentRef = doc(db, 'artifacts', appId, 'public', 'data', 'payments', paymentId);
+      
+      // Obtener datos del pago antes de actualizar
+      const paymentSnap = await getDoc(paymentRef);
+      if (!paymentSnap.exists()) {
+        addNotification("No se encontró el pago", "error");
         return;
       }
 
-      // Si es aprobación, realizar acciones automáticas
-      if (messageData.type === 'approval') {
-        const paymentRef = doc(db, 'artifacts', appId, 'public', 'data', 'payments', payment.id);
-        
-        // 1. Actualizar pago a Completado
-        await updateDoc(paymentRef, {
-          status: 'Completado',
-          completedAt: Timestamp.now(),
-          updatedAt: Timestamp.now()
-        });
+      const currentPayment = { id: paymentId, ...paymentSnap.data() };
 
-        // 2. Obtener datos actualizados del pago
-        const paymentSnap = await getDoc(paymentRef);
-        if (!paymentSnap.exists()) {
-          addNotification("No se pudo encontrar el pago actualizado", "error");
-          return;
-        }
-        
+      // Actualizar estado del pago
+      await updateDoc(paymentRef, { 
+        status: newStatus,
+        updatedAt: Timestamp.now(),
+        ...(newStatus === 'Completado' ? { completedAt: Timestamp.now() } : {})
+      });
+
+      // Si el pago quedó Completado, realizar acciones adicionales
+      if (newStatus === 'Completado') {
+        // 1. Generar invoice PDF
+        const updatedPaymentSnap = await getDoc(paymentRef);
         const updatedPayment = { 
-          id: payment.id, 
-          ...paymentSnap.data(),
-          // Asegurar que tenemos los campos necesarios con fallbacks
-          clientName: paymentSnap.data().clientName || payment.clientName || 'Cliente',
-          clientEmail: paymentSnap.data().clientEmail || payment.clientEmail || 'N/A',
-          serviceNumber: paymentSnap.data().serviceNumber || payment.serviceNumber || 'N/A',
-          serviceType: paymentSnap.data().serviceType || payment.serviceType || 'Servicio',
-          description: paymentSnap.data().description || payment.description || 'Descripción del servicio',
-          amount: paymentSnap.data().amount || payment.amount || 0,
-          currency: paymentSnap.data().currency || payment.currency || 'USD',
-          gateway: paymentSnap.data().gateway || payment.gateway || 'N/A',
-          transactionId: paymentSnap.data().transactionId || payment.transactionId || 'N/A',
-          paymentMethod: paymentSnap.data().paymentMethod || payment.paymentMethod || 'N/A',
-          createdAt: paymentSnap.data().createdAt || payment.createdAt,
-          dueDate: paymentSnap.data().dueDate || payment.dueDate
+          id: paymentId, 
+          ...updatedPaymentSnap.data(),
+          // Asegurar campos necesarios con fallbacks
+          clientName: updatedPaymentSnap.data().clientName || currentPayment.clientName || 'Cliente',
+          clientEmail: updatedPaymentSnap.data().clientEmail || currentPayment.clientEmail || 'N/A',
+          serviceNumber: updatedPaymentSnap.data().serviceNumber || currentPayment.serviceNumber || 'N/A',
+          serviceType: updatedPaymentSnap.data().serviceType || currentPayment.serviceType || 'Servicio',
+          description: updatedPaymentSnap.data().description || currentPayment.description || 'Descripción del servicio',
+          amount: updatedPaymentSnap.data().amount || currentPayment.amount || 0,
+          currency: updatedPaymentSnap.data().currency || currentPayment.currency || 'USD',
+          gateway: updatedPaymentSnap.data().gateway || currentPayment.gateway || 'N/A',
+          transactionId: updatedPaymentSnap.data().transactionId || currentPayment.transactionId || 'N/A',
+          paymentMethod: updatedPaymentSnap.data().paymentMethod || currentPayment.paymentMethod || 'N/A',
+          createdAt: updatedPaymentSnap.data().createdAt || currentPayment.createdAt,
+          dueDate: updatedPaymentSnap.data().dueDate || currentPayment.dueDate
         };
+        
+        generateInvoicePDF(updatedPayment);
 
-        // 3. Generar invoice HTML
-        let invoiceHTML;
-        try {
-          invoiceHTML = generateInvoiceHTML(updatedPayment);
-        } catch (invoiceError) {
-          console.error('Error generando invoice HTML:', invoiceError);
-          // Invoice HTML básico de respaldo
-          invoiceHTML = `
-            <html>
-              <body>
-                <h1>Factura</h1>
-                <p>Cliente: ${String(updatedPayment.clientName || 'Cliente')}</p>
-                <p>Monto: ${String(updatedPayment.currency || 'USD')} ${Number(updatedPayment.amount || 0).toFixed(2)}</p>
-                <p>Estado: Completado</p>
-              </body>
-            </html>
-          `;
-        }
-
-        // 4. Actualizar servicio según el tipo
+        // 2. Actualizar servicio según el tipo
         const serviceId = updatedPayment.serviceId;
         if (serviceId) {
           try {
@@ -413,43 +329,46 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
               }
             }
           } catch (serviceError) {
-            console.error('Error actualizando servicio después de aprobación:', serviceError);
+            console.error('Error actualizando servicio después de completar pago:', serviceError);
             // No fallar todo el proceso si falla la actualización del servicio
           }
         }
 
-        // 5. Aquí se enviaría el mensaje con el invoice adjunto
-        // Por ahora guardamos el invoice en el mensaje para referencia futura
-        messageData.invoiceHTML = invoiceHTML;
-        messageData.invoiceNumber = `INV-${payment.id.slice(-8).toUpperCase()}`;
-        
-        console.log("Mensaje de aprobación enviado con invoice:", {
-          paymentId: payment.id,
-          invoiceNumber: messageData.invoiceNumber,
-          message: messageData.message
-        });
+        addNotification(`Pago completado, servicio actualizado e invoice generado`, "success");
+      } else {
+        addNotification(`Estado del pago actualizado a ${newStatus}`, "success");
       }
-
-      // Envío real del mensaje (email, notificación, etc.)
-      // TODO: Integrar con servicio de emails o notificaciones
-      console.log("Mensaje enviado:", messageData);
-      
-      addNotification(
-        messageData.type === 'approval' 
-          ? "Pago aprobado, servicio actualizado e invoice enviado exitosamente" 
-          : "Mensaje enviado exitosamente", 
-        "success"
-      );
-      
-      // Cerrar modal y refrescar datos
-      setMessageModalOpen(false);
-      setSelectedPayment(null);
-      
     } catch (error) {
-      console.error("Error enviando mensaje:", error);
-      addNotification("Error al enviar el mensaje", "error");
+      console.error("Error updating payment status:", error);
+      addNotification("Error al actualizar el estado del pago", "error");
     }
   };
+
+
+  // Generar y descargar invoice PDF
+  const downloadInvoice = (payment) => {
+    generateInvoicePDF(payment);
+    addNotification('Invoice PDF descargado exitosamente', 'success');
+  };
+
+  // Eliminar pago
+  const handleDeletePayment = async (paymentId) => {
+    if (isDemo) {
+      addNotification("Función no disponible en modo demo", "error");
+      return;
+    }
+
+    if (window.confirm('¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.')) {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'payments', paymentId));
+        addNotification('Pago eliminado exitosamente', 'success');
+      } catch (error) {
+        console.error('Error deleting payment:', error);
+        addNotification('Error al eliminar el pago', 'error');
+      }
+    }
+  };
+
 
   const getStatusColor = (status) => {
     const statusMap = {
@@ -741,22 +660,6 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
                             Eliminar Pago
                           </button>
                         </ActionDropdown>
-                        
-                        {/* Botones de mensajes */}
-                        <button
-                          onClick={() => handleSendMessage(payment, 'approval')}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-md"
-                          title="Enviar mensaje de aprobación"
-                        >
-                          <CheckIcon />
-                        </button>
-                        <button
-                          onClick={() => handleSendMessage(payment, 'rejection')}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-md"
-                          title="Enviar mensaje de rechazo"
-                        >
-                          <XIcon />
-                        </button>
                       </>
                     )}
                   </div>
@@ -776,15 +679,6 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
           )}
         </>
       )}
-
-      {/* Modal de mensajes */}
-      <PaymentMessageModal
-        isOpen={messageModalOpen}
-        onClose={() => setMessageModalOpen(false)}
-        payment={selectedPayment}
-        onSend={handleMessageSend}
-        isDemo={isDemo}
-      />
 
       {/* Modal de comprobante */}
       {proofModalOpen && selectedPayment?.proofUrl && (
