@@ -473,12 +473,16 @@ function ClientPaymentsDashboard({ user, isDemo, userProfile }) {
       }
       
       const paymentRef = doc(db, 'artifacts', appId, 'public', 'data', 'payments', payment.id);
-      await updateDoc(paymentRef, { proofUrl: url, proofUploadedAt: new Date() });
+      await updateDoc(paymentRef, { 
+        proofUrl: url, 
+        proofUploadedAt: new Date(),
+        status: 'Procesando' // Cambiar a Procesando cuando se sube el comprobante
+      });
       console.log('✅ Comprobante guardado en Firestore:', url);
       
       // Actualizar UI local inmediata
-      setSelectedPayment(prev => prev && prev.id === payment.id ? { ...prev, proofUrl: url } : prev);
-      setPayments(prev => prev.map(p => p.id === payment.id ? { ...p, proofUrl: url } : p));
+      setSelectedPayment(prev => prev && prev.id === payment.id ? { ...prev, proofUrl: url, status: 'Procesando' } : prev);
+      setPayments(prev => prev.map(p => p.id === payment.id ? { ...p, proofUrl: url, status: 'Procesando' } : p));
       setShowTransferInstructions(false);
       addNotification('Comprobante subido correctamente', 'success');
     } catch (e) {

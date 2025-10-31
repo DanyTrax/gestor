@@ -405,7 +405,7 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
               // Si es servicio de único pago
               else if (service.billingCycle === 'One-Time' || updatedPayment.paymentType === 'Pago Único') {
                 updates.paidDate = Timestamp.now();
-                updates.status = 'Pago';
+                updates.status = 'Completado';
               }
 
               if (Object.keys(updates).length > 1) { // Más de solo updatedAt
