@@ -683,17 +683,19 @@ function ClientPaymentsDashboard({ user, isDemo, userProfile }) {
                       })()}
                     </div>
                   )}
-                  {payment.status === 'Pendiente' && payment.gateway === 'Transferencia Bancaria' && (
-                    <>
-                      <label className={`px-4 py-2 ${uploadingProofById[payment.id] ? 'bg-gray-200 text-gray-400 cursor-wait' : 'bg-gray-100 text-gray-800 hover:bg-gray-200 cursor-pointer'} rounded-lg text-sm`}>
-                        {uploadingProofById[payment.id] ? 'Subiendo...' : 'Subir Comprobante'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => e.target.files?.[0] && handleUploadProof(payment, e.target.files[0])}
-                        />
-                      </label>
+                  {payment.gateway === 'Transferencia Bancaria' && (
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {payment.status === 'Pendiente' && (
+                        <label className={`px-4 py-2 ${uploadingProofById[payment.id] ? 'bg-gray-200 text-gray-400 cursor-wait' : 'bg-gray-100 text-gray-800 hover:bg-gray-200 cursor-pointer'} rounded-lg text-sm`}>
+                          {uploadingProofById[payment.id] ? 'Subiendo...' : 'Subir Comprobante'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => e.target.files?.[0] && handleUploadProof(payment, e.target.files[0])}
+                          />
+                        </label>
+                      )}
                       {payment.proofUrl && (
                         <button
                           onClick={() => {
@@ -705,7 +707,12 @@ function ClientPaymentsDashboard({ user, isDemo, userProfile }) {
                           Ver Comprobante
                         </button>
                       )}
-                    </>
+                      {payment.status === 'Procesando' && (
+                        <span className="text-sm text-blue-600 font-medium">
+                          Comprobante en revisión
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

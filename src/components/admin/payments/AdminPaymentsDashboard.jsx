@@ -17,6 +17,7 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
   const [gatewayFilter, setGatewayFilter] = useState('Todos');
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState('history');
+  const [selectedPayment, setSelectedPayment] = useState(null);
   const [proofModalOpen, setProofModalOpen] = useState(false);
 
   const paymentStatusOptions = ['Todos', 'Pendiente', 'Procesando', 'Completado', 'Fallido', 'Cancelado', 'Reembolsado'];
@@ -784,7 +785,15 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
           <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-4 flex justify-between items-center border-b">
               <h3 className="text-lg font-semibold text-gray-800">Comprobante de Pago</h3>
-              <button onClick={() => setProofModalOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+              <button
+                onClick={() => {
+                  setProofModalOpen(false);
+                  setSelectedPayment(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
             </div>
             <div className="p-4">
               <img src={selectedPayment.proofUrl} alt="Comprobante" className="max-w-full h-auto rounded" />
