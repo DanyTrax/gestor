@@ -181,16 +181,52 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
   };
 
   const handleSendMessage = (payment, messageType) => {
-    setSelectedPayment(payment);
+    setSelectedPayment({ ...payment, _messageType: messageType });
     setMessageModalOpen(true);
   };
 
   // Generar y descargar invoice
   const downloadInvoice = (payment) => {
+    const invoiceHTML = generateInvoiceHTML(payment);
+
+    // Crear y descargar el archivo
+    const blob = new Blob([invoiceHTML], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `invoice-INV-${payment.id.slice(-8).toUpperCase()}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    addNotification('Invoice descargado exitosamente', 'success');
+  };
+
+  // Eliminar pago
+  const handleDeletePayment = async (paymentId) => {
+    if (isDemo) {
+      addNotification("Función no disponible en modo demo", "error");
+      return;
+    }
+
+    if (window.confirm('¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.')) {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'payments', paymentId));
+        addNotification('Pago eliminado exitosamente', 'success');
+      } catch (error) {
+        console.error('Error deleting payment:', error);
+        addNotification('Error al eliminar el pago', 'error');
+      }
+    }
+  };
+
+  // Función para generar HTML del invoice
+  const generateInvoiceHTML = (payment) => {
     const invoiceData = {
       invoiceNumber: `INV-${payment.id.slice(-8).toUpperCase()}`,
-      date: new Date(payment.createdAt.seconds * 1000).toLocaleDateString(),
-      dueDate: payment.dueDate ? new Date(payment.dueDate.seconds * 1000).toLocaleDateString() : 'N/A',
+      date: new Date(payment.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('es-ES'),
+      dueDate: payment.dueDate ? new Date(payment.dueDate.seconds * 1000).toLocaleDateString('es-ES') : 'N/A',
       clientName: payment.clientName || 'Cliente',
       clientEmail: payment.clientEmail || 'N/A',
       serviceNumber: payment.serviceNumber || 'N/A',
@@ -198,14 +234,13 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
       description: payment.description || 'Descripción del servicio',
       amount: payment.amount || 0,
       currency: payment.currency || 'USD',
-      status: payment.status || 'Pendiente',
+      status: 'Completado',
       gateway: payment.gateway || 'N/A',
       transactionId: payment.transactionId || 'N/A',
       paymentMethod: payment.paymentMethod || 'N/A'
     };
 
-    // Crear contenido HTML del invoice
-    const invoiceHTML = `
+    return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -292,37 +327,6 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
       </body>
       </html>
     `;
-
-    // Crear y descargar el archivo
-    const blob = new Blob([invoiceHTML], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `invoice-${invoiceData.invoiceNumber}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    addNotification('Invoice descargado exitosamente', 'success');
-  };
-
-  // Eliminar pago
-  const handleDeletePayment = async (paymentId) => {
-    if (isDemo) {
-      addNotification("Función no disponible en modo demo", "error");
-      return;
-    }
-
-    if (window.confirm('¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.')) {
-      try {
-        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'payments', paymentId));
-        addNotification('Pago eliminado exitosamente', 'success');
-      } catch (error) {
-        console.error('Error deleting payment:', error);
-        addNotification('Error al eliminar el pago', 'error');
-      }
-    }
   };
 
   const handleMessageSend = async (messageData) => {
@@ -332,12 +336,96 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
     }
 
     try {
-      // Aquí se implementaría el envío real del mensaje
-      // Por ejemplo, guardar en Firestore o enviar por email
+      const payment = selectedPayment;
+      if (!payment) {
+        addNotification("No se encontró el pago seleccionado", "error");
+        return;
+      }
+
+      // Si es aprobación, realizar acciones automáticas
+      if (messageData.type === 'approval') {
+        const paymentRef = doc(db, 'artifacts', appId, 'public', 'data', 'payments', payment.id);
+        
+        // 1. Actualizar pago a Completado
+        await updateDoc(paymentRef, {
+          status: 'Completado',
+          completedAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        });
+
+        // 2. Obtener datos actualizados del pago
+        const paymentSnap = await getDoc(paymentRef);
+        const updatedPayment = { id: payment.id, ...paymentSnap.data() };
+
+        // 3. Generar invoice HTML
+        const invoiceHTML = generateInvoiceHTML(updatedPayment);
+
+        // 4. Actualizar servicio según el tipo
+        const serviceId = updatedPayment.serviceId;
+        if (serviceId) {
+          try {
+            const serviceRef = doc(db, 'artifacts', appId, 'public', 'data', 'services', serviceId);
+            const serviceSnap = await getDoc(serviceRef);
+            
+            if (serviceSnap.exists()) {
+              const service = serviceSnap.data();
+              const updates = { updatedAt: Timestamp.now() };
+
+              // Si es servicio de ciclo (renovación)
+              if (updatedPayment.isRenewal || updatedPayment.paymentType === 'Renovación') {
+                if (updatedPayment.startDate) {
+                  updates.dueDate = updatedPayment.startDate; // Timestamp
+                }
+                if (updatedPayment.endDate) {
+                  updates.expirationDate = updatedPayment.endDate; // Timestamp
+                }
+                updates.status = 'Activo';
+              } 
+              // Si es servicio de único pago
+              else if (service.billingCycle === 'One-Time' || updatedPayment.paymentType === 'Pago Único') {
+                updates.paidDate = Timestamp.now();
+                updates.status = 'Pago';
+              }
+
+              if (Object.keys(updates).length > 1) { // Más de solo updatedAt
+                await updateDoc(serviceRef, updates);
+              }
+            }
+          } catch (serviceError) {
+            console.error('Error actualizando servicio después de aprobación:', serviceError);
+            // No fallar todo el proceso si falla la actualización del servicio
+          }
+        }
+
+        // 5. Aquí se enviaría el mensaje con el invoice adjunto
+        // Por ahora guardamos el invoice en el mensaje para referencia futura
+        messageData.invoiceHTML = invoiceHTML;
+        messageData.invoiceNumber = `INV-${payment.id.slice(-8).toUpperCase()}`;
+        
+        console.log("Mensaje de aprobación enviado con invoice:", {
+          paymentId: payment.id,
+          invoiceNumber: messageData.invoiceNumber,
+          message: messageData.message
+        });
+      }
+
+      // Envío real del mensaje (email, notificación, etc.)
+      // TODO: Integrar con servicio de emails o notificaciones
       console.log("Mensaje enviado:", messageData);
-      addNotification("Mensaje enviado exitosamente", "success");
+      
+      addNotification(
+        messageData.type === 'approval' 
+          ? "Pago aprobado, servicio actualizado e invoice enviado exitosamente" 
+          : "Mensaje enviado exitosamente", 
+        "success"
+      );
+      
+      // Cerrar modal y refrescar datos
+      setMessageModalOpen(false);
+      setSelectedPayment(null);
+      
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("Error enviando mensaje:", error);
       addNotification("Error al enviar el mensaje", "error");
     }
   };

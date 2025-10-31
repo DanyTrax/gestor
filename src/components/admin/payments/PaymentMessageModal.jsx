@@ -8,9 +8,17 @@ function PaymentMessageModal({ isOpen, onClose, payment, onSend, isDemo }) {
   const { addNotification } = useNotification();
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
-  const [messageType, setMessageType] = useState('approval'); // 'approval' o 'rejection'
+  // Usar el tipo de mensaje del payment si está disponible, sino default 'approval'
+  const [messageType, setMessageType] = useState(payment?._messageType || 'approval'); // 'approval' o 'rejection'
   const [customMessage, setCustomMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Actualizar messageType cuando cambie el payment
+  useEffect(() => {
+    if (payment?._messageType) {
+      setMessageType(payment._messageType);
+    }
+  }, [payment?._messageType]);
 
   const templateSuggestions = {
     approval: [
