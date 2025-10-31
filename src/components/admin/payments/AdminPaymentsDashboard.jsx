@@ -223,8 +223,14 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
 
   // Función para generar HTML del invoice
   const generateInvoiceHTML = (payment) => {
+    if (!payment || !payment.id) {
+      console.error('Payment inválido para generar invoice:', payment);
+      return '<html><body><p>Error: Datos de pago incompletos</p></body></html>';
+    }
+
+    const paymentId = payment.id || '';
     const invoiceData = {
-      invoiceNumber: `INV-${payment.id.slice(-8).toUpperCase()}`,
+      invoiceNumber: `INV-${paymentId.slice(-8).toUpperCase()}`,
       date: new Date(payment.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('es-ES'),
       dueDate: payment.dueDate ? new Date(payment.dueDate.seconds * 1000).toLocaleDateString('es-ES') : 'N/A',
       clientName: payment.clientName || 'Cliente',
@@ -337,8 +343,8 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
 
     try {
       const payment = selectedPayment;
-      if (!payment) {
-        addNotification("No se encontró el pago seleccionado", "error");
+      if (!payment || !payment.id) {
+        addNotification("No se encontró el pago seleccionado o falta el ID", "error");
         return;
       }
 
@@ -355,7 +361,28 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
 
         // 2. Obtener datos actualizados del pago
         const paymentSnap = await getDoc(paymentRef);
-        const updatedPayment = { id: payment.id, ...paymentSnap.data() };
+        if (!paymentSnap.exists()) {
+          addNotification("No se pudo encontrar el pago actualizado", "error");
+          return;
+        }
+        
+        const updatedPayment = { 
+          id: payment.id, 
+          ...paymentSnap.data(),
+          // Asegurar que tenemos los campos necesarios con fallbacks
+          clientName: paymentSnap.data().clientName || payment.clientName || 'Cliente',
+          clientEmail: paymentSnap.data().clientEmail || payment.clientEmail || 'N/A',
+          serviceNumber: paymentSnap.data().serviceNumber || payment.serviceNumber || 'N/A',
+          serviceType: paymentSnap.data().serviceType || payment.serviceType || 'Servicio',
+          description: paymentSnap.data().description || payment.description || 'Descripción del servicio',
+          amount: paymentSnap.data().amount || payment.amount || 0,
+          currency: paymentSnap.data().currency || payment.currency || 'USD',
+          gateway: paymentSnap.data().gateway || payment.gateway || 'N/A',
+          transactionId: paymentSnap.data().transactionId || payment.transactionId || 'N/A',
+          paymentMethod: paymentSnap.data().paymentMethod || payment.paymentMethod || 'N/A',
+          createdAt: paymentSnap.data().createdAt || payment.createdAt,
+          dueDate: paymentSnap.data().dueDate || payment.dueDate
+        };
 
         // 3. Generar invoice HTML
         const invoiceHTML = generateInvoiceHTML(updatedPayment);
