@@ -16,6 +16,8 @@ function ClientPaymentsDashboard({ user, isDemo, userProfile }) {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [paymentConfig, setPaymentConfig] = useState(null);
   const [uploadingProofById, setUploadingProofById] = useState({});
+  const [showProofModal, setShowProofModal] = useState(false);
+  const [proofImageUrl, setProofImageUrl] = useState(null);
 
   const getGatewaysConfig = () => {
     if (!paymentConfig) return null;
@@ -689,14 +691,15 @@ function ClientPaymentsDashboard({ user, isDemo, userProfile }) {
                         />
                       </label>
                       {payment.proofUrl && (
-                        <a
-                          href={payment.proofUrl}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          onClick={() => {
+                            setProofImageUrl(payment.proofUrl);
+                            setShowProofModal(true);
+                          }}
                           className="px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-sm"
                         >
                           Ver Comprobante
-                        </a>
+                        </button>
                       )}
                     </>
                   )}
@@ -728,6 +731,69 @@ function ClientPaymentsDashboard({ user, isDemo, userProfile }) {
                 currency={selectedPayment.currency}
                 onUpload={(file) => handleUploadProof(selectedPayment, file)}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de visualización de comprobante */}
+      {showProofModal && proofImageUrl && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 z-50 flex justify-center items-center p-4"
+          onClick={() => setShowProofModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+              <h3 className="text-xl font-bold text-gray-800">Comprobante de Pago</h3>
+              <button
+                onClick={() => setShowProofModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold w-8 h-8 flex items-center justify-center"
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 bg-gray-100 flex justify-center items-center min-h-[400px]">
+              <img
+                src={proofImageUrl}
+                alt="Comprobante de pago"
+                className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-lg"
+                onError={(e) => {
+                  e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3ENo se pudo cargar la imagen%3C/text%3E%3C/svg%3E';
+                }}
+              />
+            </div>
+            <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
+              <a
+                href={proofImageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+              >
+                Abrir en Nueva Pestaña
+              </a>
+              <button
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = proofImageUrl;
+                  link.download = `comprobante-${Date.now()}.${proofImageUrl.split('.').pop().split('?')[0]}`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+              >
+                Descargar
+              </button>
+              <button
+                onClick={() => setShowProofModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>
