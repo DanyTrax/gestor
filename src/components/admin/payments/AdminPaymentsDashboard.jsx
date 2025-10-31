@@ -211,14 +211,27 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
       const invoiceTransactionId = String(payment.transactionId || 'N/A');
       const invoicePaymentMethod = String(payment.paymentMethod || 'N/A');
 
-      // Convertir a COP si la moneda es USD
+      // Convertir a COP solo si la moneda original es USD
+      // Si ya está en COP, mostrar directamente en COP
       let finalAmount = invoiceAmount;
       let finalCurrency = invoiceCurrency;
       let originalAmount = null;
       let exchangeRate = null;
       let exchangeRateDate = null;
 
-      if (invoiceCurrency.toUpperCase() === 'USD') {
+      // Solo convertir si el pago está en USD
+      if (invoiceCurrency && invoiceCurrency.toUpperCase() === 'USD') {
+        exchangeRate = await getExchangeRate(paymentDate, payment);
+        exchangeRateDate = paymentDate.toLocaleDateString('es-ES');
+        originalAmount = invoiceAmount;
+        finalAmount = invoiceAmount * exchangeRate;
+        finalCurrency = 'COP';
+      } else if (invoiceCurrency && invoiceCurrency.toUpperCase() === 'COP') {
+        // Si ya está en COP, mantener COP
+        finalCurrency = 'COP';
+      } else {
+        // Si no tiene moneda definida, asumir USD y convertir
+        console.warn('Pago sin moneda definida, asumiendo USD');
         exchangeRate = await getExchangeRate(paymentDate, payment);
         exchangeRateDate = paymentDate.toLocaleDateString('es-ES');
         originalAmount = invoiceAmount;

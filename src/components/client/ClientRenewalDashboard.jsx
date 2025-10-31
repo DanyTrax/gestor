@@ -446,6 +446,8 @@ function ClientRenewalDashboard({ user, isDemo, userProfile }) {
         defaultMethod = activeGateways[0].name;
       }
       // Crear solicitud de pago en Firestore
+      // Usar la moneda del servicio (puede ser COP o USD)
+      const serviceCurrency = service.currency || 'USD';
       const paymentData = {
         userId: user.uid,
         serviceId: service.id,
@@ -456,7 +458,7 @@ function ClientRenewalDashboard({ user, isDemo, userProfile }) {
         amount: finalPrice,
         originalAmount: originalPrice,
         discount: originalPrice - discountedPrice,
-        currency: 'USD',
+        currency: serviceCurrency, // Usar la moneda del servicio
         status: 'Pendiente',
         paymentMethod: defaultMethod,
         paymentType: 'Renovación',
