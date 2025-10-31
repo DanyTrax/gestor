@@ -213,7 +213,7 @@ function ClientServicesDashboard({ user, isDemo, userProfile }) {
     addNotification('Redirigiendo a renovaciones para este servicio', 'success');
   };
 
-  // Cargar pagos pendientes para deshabilitar botones
+  // Cargar pagos pendientes/procesando para deshabilitar botones
   useEffect(() => {
     if (isDemo) {
       setPendingPayments(new Set(['demo1', 'demo2'])); // Simular pagos pendientes en demo
@@ -224,16 +224,16 @@ function ClientServicesDashboard({ user, isDemo, userProfile }) {
 
     const paymentsQuery = query(
       collection(db, 'artifacts', appId, 'public', 'data', 'payments'),
-      where('userId', '==', user.uid),
-      where('status', '==', 'Pendiente')
+      where('userId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(paymentsQuery, (snapshot) => {
       const pendingServiceIds = new Set();
       const byService = {};
+      const activeStatuses = new Set(['Pendiente', 'Procesando']);
       snapshot.docs.forEach(d => {
         const payment = d.data();
-        if (payment.serviceId) {
+        if (payment.serviceId && activeStatuses.has(payment.status)) {
           pendingServiceIds.add(payment.serviceId);
           byService[payment.serviceId] = { id: d.id, ...payment };
         }
