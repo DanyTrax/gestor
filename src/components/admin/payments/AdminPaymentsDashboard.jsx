@@ -229,29 +229,30 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
     }
 
     const paymentId = payment.id || '';
-    const invoiceData = {
-      invoiceNumber: `INV-${paymentId.slice(-8).toUpperCase()}`,
-      date: new Date(payment.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('es-ES'),
-      dueDate: payment.dueDate ? new Date(payment.dueDate.seconds * 1000).toLocaleDateString('es-ES') : 'N/A',
-      clientName: payment.clientName || 'Cliente',
-      clientEmail: payment.clientEmail || 'N/A',
-      serviceNumber: payment.serviceNumber || 'N/A',
-      serviceType: payment.serviceType || 'Servicio',
-      description: payment.description || 'Descripción del servicio',
-      amount: payment.amount || 0,
-      currency: payment.currency || 'USD',
-      status: 'Completado',
-      gateway: payment.gateway || 'N/A',
-      transactionId: payment.transactionId || 'N/A',
-      paymentMethod: payment.paymentMethod || 'N/A'
-    };
+    
+    // Extraer todas las variables individuales para evitar problemas de scope
+    const invoiceNumber = `INV-${paymentId.slice(-8).toUpperCase()}`;
+    const invoiceDate = new Date(payment.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('es-ES');
+    const invoiceDueDate = payment.dueDate ? new Date(payment.dueDate.seconds * 1000).toLocaleDateString('es-ES') : 'N/A';
+    const invoiceClientName = String(payment.clientName || 'Cliente');
+    const invoiceClientEmail = String(payment.clientEmail || 'N/A');
+    const invoiceServiceNumber = String(payment.serviceNumber || 'N/A');
+    const invoiceServiceType = String(payment.serviceType || 'Servicio');
+    const invoiceDescription = String(payment.description || 'Descripción del servicio');
+    const invoiceAmount = Number(payment.amount || 0);
+    const invoiceCurrency = String(payment.currency || 'USD');
+    const invoiceStatus = 'Completado';
+    const invoiceGateway = String(payment.gateway || 'N/A');
+    const invoiceTransactionId = String(payment.transactionId || 'N/A');
+    const invoicePaymentMethod = String(payment.paymentMethod || 'N/A');
+    const invoiceStatusClass = invoiceStatus.toLowerCase();
 
     return `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>Invoice ${invoiceData.invoiceNumber}</title>
+        <title>Invoice ${invoiceNumber}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
           .invoice { background: white; max-width: 800px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -287,15 +288,15 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
           <div class="invoice-details">
             <div class="client-info">
               <h3>Cliente</h3>
-              <p><strong>${invoiceData.clientName}</strong></p>
-              <p>${invoiceData.clientEmail}</p>
+              <p><strong>${invoiceClientName}</strong></p>
+              <p>${invoiceClientEmail}</p>
             </div>
             <div class="invoice-info">
               <h3>Detalles de la Factura</h3>
-              <p><strong>Número:</strong> ${invoiceData.invoiceNumber}</p>
-              <p><strong>Fecha:</strong> ${invoiceData.date}</p>
-              <p><strong>Vencimiento:</strong> ${invoiceData.dueDate}</p>
-              <p><strong>Estado:</strong> <span class="status ${invoiceData.status.toLowerCase()}">${invoiceData.status}</span></p>
+              <p><strong>Número:</strong> ${invoiceNumber}</p>
+              <p><strong>Fecha:</strong> ${invoiceDate}</p>
+              <p><strong>Vencimiento:</strong> ${invoiceDueDate}</p>
+              <p><strong>Estado:</strong> <span class="status ${invoiceStatusClass}">${invoiceStatus}</span></p>
             </div>
           </div>
           
@@ -311,22 +312,22 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
               </thead>
               <tbody>
                 <tr>
-                  <td>${invoiceData.serviceType}</td>
-                  <td>${invoiceData.description}</td>
-                  <td class="amount">${invoiceData.currency} ${invoiceData.amount.toFixed(2)}</td>
+                  <td>${invoiceServiceType}</td>
+                  <td>${invoiceDescription}</td>
+                  <td class="amount">${invoiceCurrency} ${invoiceAmount.toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
           
           <div class="total">
-            <div class="total-amount">Total: ${invoiceData.currency} ${invoiceData.amount.toFixed(2)}</div>
+            <div class="total-amount">Total: ${invoiceCurrency} ${invoiceAmount.toFixed(2)}</div>
           </div>
           
           <div class="footer">
-            <p>Método de Pago: ${invoiceData.paymentMethod}</p>
-            <p>Gateway: ${invoiceData.gateway}</p>
-            ${invoiceData.transactionId !== 'N/A' ? `<p>ID de Transacción: ${invoiceData.transactionId}</p>` : ''}
+            <p>Método de Pago: ${invoicePaymentMethod}</p>
+            <p>Gateway: ${invoiceGateway}</p>
+            ${invoiceTransactionId !== 'N/A' ? `<p>ID de Transacción: ${invoiceTransactionId}</p>` : ''}
             <p>Gracias por su negocio</p>
           </div>
         </div>
