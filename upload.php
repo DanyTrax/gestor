@@ -72,12 +72,52 @@ $allowedMime = [
   'application/pdf' => 'pdf',
 ];
 
-$detectedType = getMimeType($tmpName);
+// Mapeo de variantes comunes de tipos MIME
+$mimeVariants = [
+  'image/pjpeg' => 'image/jpeg',
+  'image/x-png' => 'image/png',
+  'image/x-icon' => 'image/png', // algunos sistemas detectan PNG como icon
+];
+
+// Prioridad 1: Tipo MIME que envía el navegador (más confiable)
+$detectedType = $file['type'] ?? '';
+
+// Normalizar variantes comunes
+if (isset($mimeVariants[$detectedType])) {
+  $detectedType = $mimeVariants[$detectedType];
+}
+
+// Prioridad 2: Detección por contenido del archivo
+if (empty($detectedType) || $detectedType === 'application/octet-stream') {
+  $detectedType = getMimeType($tmpName);
+  // Normalizar también el tipo detectado
+  if (isset($mimeVariants[$detectedType])) {
+    $detectedType = $mimeVariants[$detectedType];
+  }
+}
+
+// Prioridad 3: Fallback por extensión del archivo original
+if (empty($detectedType) || $detectedType === 'application/octet-stream') {
+  $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+  $extToMime = [
+    'jpg' => 'image/jpeg',
+    'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    'pdf' => 'application/pdf',
+  ];
+  if (isset($extToMime[$ext])) {
+    $detectedType = $extToMime[$ext];
+  }
+}
+
+// Validar que el tipo está permitido
 if (!isset($allowedMime[$detectedType])) {
   http_response_code(415);
   echo json_encode([
     'error' => 'unsupported_type',
     'mime' => $detectedType,
+    'browser_type' => $file['type'] ?? 'not_set',
+    'filename' => $origName,
     'allowed' => array_keys($allowedMime)
   ]);
   exit;
