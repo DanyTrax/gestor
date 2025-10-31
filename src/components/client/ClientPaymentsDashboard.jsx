@@ -439,30 +439,49 @@ function ClientPaymentsDashboard({ user, isDemo, userProfile }) {
     }
     try {
       setUploadingProofById(prev => ({ ...prev, [payment.id]: true }));
+      console.log('🔄 Iniciando subida de comprobante vía PHP...');
+      
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch('/upload.php', {
+      
+      // Ruta absoluta desde la raíz del dominio (funciona en /dist/ y raíz)
+      const uploadUrl = window.location.origin + '/upload.php';
+      console.log('📤 Enviando a:', uploadUrl);
+      
+      const res = await fetch(uploadUrl, {
         method: 'POST',
         body: form,
       });
+      
+      console.log('📥 Respuesta recibida:', res.status, res.statusText);
+      
       if (!res.ok) {
-        throw new Error(`upload_failed_${res.status}`);
+        const errorText = await res.text();
+        console.error('❌ Error del servidor:', errorText);
+        throw new Error(`upload_failed_${res.status}: ${errorText}`);
       }
+      
       const data = await res.json();
+      console.log('✅ Respuesta JSON:', data);
+      
       const url = data?.url;
       if (!url) {
+        console.error('❌ No se recibió URL en la respuesta:', data);
         throw new Error('missing_url');
       }
+      
       const paymentRef = doc(db, 'artifacts', appId, 'public', 'data', 'payments', payment.id);
       await updateDoc(paymentRef, { proofUrl: url, proofUploadedAt: new Date() });
+      console.log('✅ Comprobante guardado en Firestore:', url);
+      
       // Actualizar UI local inmediata
       setSelectedPayment(prev => prev && prev.id === payment.id ? { ...prev, proofUrl: url } : prev);
       setPayments(prev => prev.map(p => p.id === payment.id ? { ...p, proofUrl: url } : p));
       setShowTransferInstructions(false);
       addNotification('Comprobante subido correctamente', 'success');
     } catch (e) {
-      console.error('Upload proof failed', e);
-      addNotification('No se pudo subir el comprobante', 'error');
+      console.error('❌ Upload proof failed:', e);
+      addNotification(`No se pudo subir el comprobante: ${e.message}`, 'error');
     } finally {
       setUploadingProofById(prev => ({ ...prev, [payment.id]: false }));
     }
