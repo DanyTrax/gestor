@@ -135,8 +135,60 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
     return matchesSearch && matchesStatus && matchesGateway;
   });
 
+  // Función para obtener tasa de cambio USD a COP para una fecha específica
+  const getExchangeRate = async (date, paymentData = null) => {
+    try {
+      // Si el pago ya tiene la tasa guardada, usarla
+      if (paymentData?.exchangeRate) {
+        return Number(paymentData.exchangeRate);
+      }
+
+      // Formatear fecha para la API (YYYY-MM-DD)
+      const dateObj = date instanceof Date ? date : new Date(date);
+      const dateStr = dateObj.toISOString().split('T')[0];
+
+      // Intentar obtener tasa histórica desde exchangerate.host (gratuita)
+      // Para fechas históricas, usa la API de exchangerate.host
+      try {
+        // Si la fecha es hoy o muy reciente, usar API de tasa actual
+        const today = new Date();
+        const daysDiff = Math.floor((today - dateObj) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff <= 7) {
+          // Para fechas recientes, obtener tasa actual (la diferencia será mínima)
+          const response = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=COP');
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.rates && data.rates.COP) {
+              return Number(data.rates.COP);
+            }
+          }
+        } else {
+          // Para fechas históricas, intentar obtener tasa histórica
+          const response = await fetch(`https://api.exchangerate.host/${dateStr}?base=USD&symbols=COP`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.rates && data.rates.COP) {
+              return Number(data.rates.COP);
+            }
+          }
+        }
+      } catch (apiError) {
+        console.warn('Error obteniendo tasa de cambio de API:', apiError);
+      }
+
+      // Fallback: Tasa aproximada (promedio histórico USD/COP ~4000)
+      // El usuario puede actualizar esto con una tasa más precisa si es necesario
+      console.warn('Usando tasa de cambio predeterminada (4000 COP/USD). Para tasas históricas precisas, configure una API key.');
+      return 4000;
+    } catch (error) {
+      console.error('Error en getExchangeRate:', error);
+      return 4000; // Tasa predeterminada
+    }
+  };
+
   // Función para generar PDF del invoice
-  const generateInvoicePDF = (payment) => {
+  const generateInvoicePDF = async (payment) => {
     try {
       if (!payment || !payment.id) {
         console.error('Payment inválido para generar invoice:', payment);
@@ -145,7 +197,8 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
 
       const paymentId = String(payment.id || '');
       const invoiceNumber = 'INV-' + paymentId.slice(-8).toUpperCase();
-      const invoiceDate = new Date(payment.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('es-ES');
+      const paymentDate = payment.createdAt?.seconds ? new Date(payment.createdAt.seconds * 1000) : new Date();
+      const invoiceDate = paymentDate.toLocaleDateString('es-ES');
       const invoiceDueDate = payment.dueDate ? new Date(payment.dueDate.seconds * 1000).toLocaleDateString('es-ES') : 'N/A';
       const invoiceClientName = String(payment.clientName || 'Cliente');
       const invoiceClientEmail = String(payment.clientEmail || 'N/A');
@@ -157,7 +210,25 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
       const invoiceGateway = String(payment.gateway || 'N/A');
       const invoiceTransactionId = String(payment.transactionId || 'N/A');
       const invoicePaymentMethod = String(payment.paymentMethod || 'N/A');
-      const invoiceAmountFormatted = invoiceAmount.toFixed(2);
+
+      // Convertir a COP si la moneda es USD
+      let finalAmount = invoiceAmount;
+      let finalCurrency = invoiceCurrency;
+      let originalAmount = null;
+      let exchangeRate = null;
+      let exchangeRateDate = null;
+
+      if (invoiceCurrency.toUpperCase() === 'USD') {
+        exchangeRate = await getExchangeRate(paymentDate, payment);
+        exchangeRateDate = paymentDate.toLocaleDateString('es-ES');
+        originalAmount = invoiceAmount;
+        finalAmount = invoiceAmount * exchangeRate;
+        finalCurrency = 'COP';
+      }
+
+      const finalAmountFormatted = finalAmount.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const originalAmountFormatted = originalAmount ? originalAmount.toFixed(2) : null;
+      const exchangeRateFormatted = exchangeRate ? exchangeRate.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
 
       const pdf = new jsPDF();
       let yPos = 20;
@@ -214,14 +285,23 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
       pdf.setFont(undefined, 'normal');
       pdf.text(invoiceServiceType, 25, yPos);
       pdf.text(invoiceDescription.substring(0, 35), 70, yPos);
-      pdf.text(invoiceCurrency + ' ' + invoiceAmountFormatted, 165, yPos, { align: 'right' });
-      yPos += 20;
+      pdf.text(finalCurrency + ' ' + finalAmountFormatted, 165, yPos, { align: 'right' });
+      yPos += 10;
+
+      // Si hubo conversión, mostrar información
+      if (originalAmount && exchangeRate) {
+        pdf.setFontSize(8);
+        pdf.setTextColor(102, 102, 102);
+        pdf.text('Equivale a USD ' + originalAmountFormatted + ' (Tasa: ' + exchangeRateFormatted + ' COP/USD del ' + exchangeRateDate + ')', 165, yPos, { align: 'right' });
+        yPos += 10;
+      }
 
       // Total
+      yPos += 5;
       pdf.setFontSize(16);
       pdf.setFont(undefined, 'bold');
       pdf.setTextColor(37, 99, 235);
-      pdf.text('Total: ' + invoiceCurrency + ' ' + invoiceAmountFormatted, 165, yPos, { align: 'right' });
+      pdf.text('Total: ' + finalCurrency + ' ' + finalAmountFormatted, 165, yPos, { align: 'right' });
       yPos += 20;
 
       // Footer
@@ -295,7 +375,7 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
           dueDate: updatedPaymentSnap.data().dueDate || currentPayment.dueDate
         };
         
-        generateInvoicePDF(updatedPayment);
+        await generateInvoicePDF(updatedPayment);
 
         // 2. Actualizar servicio según el tipo
         const serviceId = updatedPayment.serviceId;
@@ -346,9 +426,14 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
 
 
   // Generar y descargar invoice PDF
-  const downloadInvoice = (payment) => {
-    generateInvoicePDF(payment);
-    addNotification('Invoice PDF descargado exitosamente', 'success');
+  const downloadInvoice = async (payment) => {
+    try {
+      await generateInvoicePDF(payment);
+      addNotification('Invoice PDF descargado exitosamente', 'success');
+    } catch (error) {
+      console.error('Error descargando invoice:', error);
+      addNotification('Error al generar el invoice PDF', 'error');
+    }
   };
 
   // Eliminar pago
