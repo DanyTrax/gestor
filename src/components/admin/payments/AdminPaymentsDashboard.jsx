@@ -221,119 +221,96 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
     }
   };
 
-  // Función para generar HTML del invoice
+  // Función para generar HTML del invoice (sin template strings para evitar problemas de scope)
   const generateInvoiceHTML = (payment) => {
-    if (!payment || !payment.id) {
-      console.error('Payment inválido para generar invoice:', payment);
-      return '<html><body><p>Error: Datos de pago incompletos</p></body></html>';
+    try {
+      if (!payment || !payment.id) {
+        console.error('Payment inválido para generar invoice:', payment);
+        return '<html><body><p>Error: Datos de pago incompletos</p></body></html>';
+      }
+
+      const paymentId = String(payment.id || '');
+      const invoiceNumber = 'INV-' + paymentId.slice(-8).toUpperCase();
+      const invoiceDate = new Date(payment.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('es-ES');
+      const invoiceDueDate = payment.dueDate ? new Date(payment.dueDate.seconds * 1000).toLocaleDateString('es-ES') : 'N/A';
+      const invoiceClientName = String(payment.clientName || 'Cliente');
+      const invoiceClientEmail = String(payment.clientEmail || 'N/A');
+      const invoiceServiceNumber = String(payment.serviceNumber || 'N/A');
+      const invoiceServiceType = String(payment.serviceType || 'Servicio');
+      const invoiceDescription = String(payment.description || 'Descripción del servicio');
+      const invoiceAmount = Number(payment.amount || 0);
+      const invoiceCurrency = String(payment.currency || 'USD');
+      const invoiceStatus = 'Completado';
+      const invoiceGateway = String(payment.gateway || 'N/A');
+      const invoiceTransactionId = String(payment.transactionId || 'N/A');
+      const invoicePaymentMethod = String(payment.paymentMethod || 'N/A');
+      const invoiceStatusClass = 'completado';
+      const invoiceAmountFormatted = invoiceAmount.toFixed(2);
+      const transactionIdHtml = invoiceTransactionId !== 'N/A' ? '<p>ID de Transacción: ' + invoiceTransactionId + '</p>' : '';
+
+      // Construir HTML usando concatenación en lugar de template strings
+      const htmlParts = [
+        '<!DOCTYPE html>',
+        '<html>',
+        '<head>',
+        '<meta charset="UTF-8">',
+        '<title>Invoice ' + invoiceNumber + '</title>',
+        '<style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; } .invoice { background: white; max-width: 800px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); } .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e5e5e5; padding-bottom: 20px; } .company-name { font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 5px; } .invoice-title { font-size: 18px; color: #666; } .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; } .client-info, .invoice-info { flex: 1; } .client-info h3, .invoice-info h3 { margin: 0 0 10px 0; color: #333; font-size: 16px; } .client-info p, .invoice-info p { margin: 5px 0; color: #666; font-size: 14px; } .service-details { margin-bottom: 30px; } .service-table { width: 100%; border-collapse: collapse; margin-top: 15px; } .service-table th, .service-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e5e5; } .service-table th { background: #f8f9fa; font-weight: bold; color: #333; } .service-table .amount { text-align: right; font-weight: bold; } .total { text-align: right; margin-top: 20px; } .total-amount { font-size: 20px; font-weight: bold; color: #2563eb; } .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; } .status.completado { background: #d1fae5; color: #065f46; } .status.pendiente { background: #fef3c7; color: #92400e; } .status.fallido { background: #fee2e2; color: #991b1b; } .status.cancelado { background: #f3f4f6; color: #374151; } .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #e5e5e5; padding-top: 20px; }</style>',
+        '</head>',
+        '<body>',
+        '<div class="invoice">',
+        '<div class="header">',
+        '<div class="company-name">Gestor de Cobros</div>',
+        '<div class="invoice-title">FACTURA</div>',
+        '</div>',
+        '<div class="invoice-details">',
+        '<div class="client-info">',
+        '<h3>Cliente</h3>',
+        '<p><strong>' + invoiceClientName + '</strong></p>',
+        '<p>' + invoiceClientEmail + '</p>',
+        '</div>',
+        '<div class="invoice-info">',
+        '<h3>Detalles de la Factura</h3>',
+        '<p><strong>Número:</strong> ' + invoiceNumber + '</p>',
+        '<p><strong>Fecha:</strong> ' + invoiceDate + '</p>',
+        '<p><strong>Vencimiento:</strong> ' + invoiceDueDate + '</p>',
+        '<p><strong>Estado:</strong> <span class="status ' + invoiceStatusClass + '">' + invoiceStatus + '</span></p>',
+        '</div>',
+        '</div>',
+        '<div class="service-details">',
+        '<h3>Detalles del Servicio</h3>',
+        '<table class="service-table">',
+        '<thead>',
+        '<tr><th>Servicio</th><th>Descripción</th><th>Monto</th></tr>',
+        '</thead>',
+        '<tbody>',
+        '<tr>',
+        '<td>' + invoiceServiceType + '</td>',
+        '<td>' + invoiceDescription + '</td>',
+        '<td class="amount">' + invoiceCurrency + ' ' + invoiceAmountFormatted + '</td>',
+        '</tr>',
+        '</tbody>',
+        '</table>',
+        '</div>',
+        '<div class="total">',
+        '<div class="total-amount">Total: ' + invoiceCurrency + ' ' + invoiceAmountFormatted + '</div>',
+        '</div>',
+        '<div class="footer">',
+        '<p>Método de Pago: ' + invoicePaymentMethod + '</p>',
+        '<p>Gateway: ' + invoiceGateway + '</p>',
+        transactionIdHtml,
+        '<p>Gracias por su negocio</p>',
+        '</div>',
+        '</div>',
+        '</body>',
+        '</html>'
+      ];
+
+      return htmlParts.join('');
+    } catch (error) {
+      console.error('Error en generateInvoiceHTML:', error);
+      return '<html><body><p>Error generando factura</p></body></html>';
     }
-
-    const paymentId = payment.id || '';
-    
-    // Extraer todas las variables individuales para evitar problemas de scope
-    const invoiceNumber = `INV-${paymentId.slice(-8).toUpperCase()}`;
-    const invoiceDate = new Date(payment.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('es-ES');
-    const invoiceDueDate = payment.dueDate ? new Date(payment.dueDate.seconds * 1000).toLocaleDateString('es-ES') : 'N/A';
-    const invoiceClientName = String(payment.clientName || 'Cliente');
-    const invoiceClientEmail = String(payment.clientEmail || 'N/A');
-    const invoiceServiceNumber = String(payment.serviceNumber || 'N/A');
-    const invoiceServiceType = String(payment.serviceType || 'Servicio');
-    const invoiceDescription = String(payment.description || 'Descripción del servicio');
-    const invoiceAmount = Number(payment.amount || 0);
-    const invoiceCurrency = String(payment.currency || 'USD');
-    const invoiceStatus = 'Completado';
-    const invoiceGateway = String(payment.gateway || 'N/A');
-    const invoiceTransactionId = String(payment.transactionId || 'N/A');
-    const invoicePaymentMethod = String(payment.paymentMethod || 'N/A');
-    const invoiceStatusClass = invoiceStatus.toLowerCase();
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Invoice ${invoiceNumber}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-          .invoice { background: white; max-width: 800px; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e5e5e5; padding-bottom: 20px; }
-          .company-name { font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 5px; }
-          .invoice-title { font-size: 18px; color: #666; }
-          .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; }
-          .client-info, .invoice-info { flex: 1; }
-          .client-info h3, .invoice-info h3 { margin: 0 0 10px 0; color: #333; font-size: 16px; }
-          .client-info p, .invoice-info p { margin: 5px 0; color: #666; font-size: 14px; }
-          .service-details { margin-bottom: 30px; }
-          .service-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-          .service-table th, .service-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e5e5; }
-          .service-table th { background: #f8f9fa; font-weight: bold; color: #333; }
-          .service-table .amount { text-align: right; font-weight: bold; }
-          .total { text-align: right; margin-top: 20px; }
-          .total-amount { font-size: 20px; font-weight: bold; color: #2563eb; }
-          .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-          .status.completado { background: #d1fae5; color: #065f46; }
-          .status.pendiente { background: #fef3c7; color: #92400e; }
-          .status.fallido { background: #fee2e2; color: #991b1b; }
-          .status.cancelado { background: #f3f4f6; color: #374151; }
-          .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #e5e5e5; padding-top: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="invoice">
-          <div class="header">
-            <div class="company-name">Gestor de Cobros</div>
-            <div class="invoice-title">FACTURA</div>
-          </div>
-          
-          <div class="invoice-details">
-            <div class="client-info">
-              <h3>Cliente</h3>
-              <p><strong>${invoiceClientName}</strong></p>
-              <p>${invoiceClientEmail}</p>
-            </div>
-            <div class="invoice-info">
-              <h3>Detalles de la Factura</h3>
-              <p><strong>Número:</strong> ${invoiceNumber}</p>
-              <p><strong>Fecha:</strong> ${invoiceDate}</p>
-              <p><strong>Vencimiento:</strong> ${invoiceDueDate}</p>
-              <p><strong>Estado:</strong> <span class="status ${invoiceStatusClass}">${invoiceStatus}</span></p>
-            </div>
-          </div>
-          
-          <div class="service-details">
-            <h3>Detalles del Servicio</h3>
-            <table class="service-table">
-              <thead>
-                <tr>
-                  <th>Servicio</th>
-                  <th>Descripción</th>
-                  <th>Monto</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>${invoiceServiceType}</td>
-                  <td>${invoiceDescription}</td>
-                  <td class="amount">${invoiceCurrency} ${invoiceAmount.toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          
-          <div class="total">
-            <div class="total-amount">Total: ${invoiceCurrency} ${invoiceAmount.toFixed(2)}</div>
-          </div>
-          
-          <div class="footer">
-            <p>Método de Pago: ${invoicePaymentMethod}</p>
-            <p>Gateway: ${invoiceGateway}</p>
-            ${invoiceTransactionId !== 'N/A' ? `<p>ID de Transacción: ${invoiceTransactionId}</p>` : ''}
-            <p>Gracias por su negocio</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
   };
 
   const handleMessageSend = async (messageData) => {
@@ -386,7 +363,23 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
         };
 
         // 3. Generar invoice HTML
-        const invoiceHTML = generateInvoiceHTML(updatedPayment);
+        let invoiceHTML;
+        try {
+          invoiceHTML = generateInvoiceHTML(updatedPayment);
+        } catch (invoiceError) {
+          console.error('Error generando invoice HTML:', invoiceError);
+          // Invoice HTML básico de respaldo
+          invoiceHTML = `
+            <html>
+              <body>
+                <h1>Factura</h1>
+                <p>Cliente: ${String(updatedPayment.clientName || 'Cliente')}</p>
+                <p>Monto: ${String(updatedPayment.currency || 'USD')} ${Number(updatedPayment.amount || 0).toFixed(2)}</p>
+                <p>Estado: Completado</p>
+              </body>
+            </html>
+          `;
+        }
 
         // 4. Actualizar servicio según el tipo
         const serviceId = updatedPayment.serviceId;
