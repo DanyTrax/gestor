@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  gestor-cobros:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gestor-cobros
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"
+    volumes:
+      # Persistir uploads fuera del contenedor
+      - ./uploads:/var/www/html/uploads
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+    labels:
+      # Labels para Dockge
+      - "com.uw-labs.dockge.stack-name=gestor-cobros"
+      - "com.uw-labs.dockge.stack-dir=/data/stacks/gestor-cobros"
+    networks:
+      - gestor-network
+
+networks:
+  gestor-network:
+    driver: bridge
+
