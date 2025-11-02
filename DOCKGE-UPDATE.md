@@ -36,15 +36,17 @@ Esto reconstruirá la imagen Docker con los nuevos cambios.
 
 ---
 
-## Opción 2: Desde Dockge (Recomendado)
+## Opción 2: Desde Dockge
 
-Si Dockge tiene integración con Git, puedes configurar actualizaciones automáticas:
+### Si tienes el botón "Actualizar":
 
-### En Dockge:
+1. Ve al stack `gestor` en Dockge
+2. Click en el botón **"Actualizar"** (icono de descarga)
+3. Esto debería hacer pull y reconstruir automáticamente
 
-1. Ve al stack `gestor-cobros`
-2. Busca la opción **"Update"** o **"Pull"** o **"Sync"**
-3. Si existe, click para actualizar desde Git
+### Si el botón "Actualizar" no funciona o no está:
+
+Usa la **Opción 3** (Manual desde SSH) en su lugar
 
 ---
 
