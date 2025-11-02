@@ -68,7 +68,7 @@ COPY --from=builder /app/dist /var/www/html
 COPY upload.php /var/www/html/
 
 # Copiar .htaccess si existe (para SPA routing)
-COPY public/.htaccess /var/www/html/.htaccess 2>/dev/null || true
+# El .htaccess se copia desde dist si existe, o se crea en Apache config
 
 # Crear directorio uploads y configurar permisos
 RUN mkdir -p /var/www/html/uploads/payments && \
