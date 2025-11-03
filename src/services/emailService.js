@@ -186,6 +186,36 @@ export const sendEmail = async ({
 
     // Enviar email real usando el endpoint PHP
     try {
+      // Verificar si estamos en desarrollo local
+      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      
+      if (isDevelopment) {
+        console.warn('⚠️ Modo desarrollo: El endpoint PHP no está disponible localmente. El email se registrará como simulado.');
+        
+        // En desarrollo, registrar como simulado pero indicar que necesita servidor
+        const messageId = await registerMessage({
+          to,
+          toName,
+          subject,
+          body: text || html,
+          type,
+          recipientType,
+          status: 'Simulado',
+          simulated: true,
+          errorMessage: '⚠️ Email no enviado. En desarrollo local, el servidor PHP no está disponible. Despliega en producción para envío real.',
+          module,
+          event,
+          metadata
+        });
+
+        return { 
+          success: true, 
+          messageId, 
+          simulated: true,
+          warning: 'En desarrollo local, el email no se envía realmente. Despliega en producción para envío real.'
+        };
+      }
+
       const response = await fetch('/send-email.php', {
         method: 'POST',
         headers: {
@@ -208,6 +238,21 @@ export const sendEmail = async ({
           }
         })
       });
+
+      // Verificar que la respuesta sea válida
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error HTTP:', response.status, errorText);
+        throw new Error(`Error del servidor (${response.status}): ${errorText.substring(0, 100)}`);
+      }
+
+      // Verificar que sea JSON válido
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const textResponse = await response.text();
+        console.error('Respuesta no es JSON:', textResponse.substring(0, 200));
+        throw new Error(`El servidor no devolvió JSON. Respuesta: ${textResponse.substring(0, 100)}`);
+      }
 
       const result = await response.json();
 
@@ -249,6 +294,12 @@ export const sendEmail = async ({
       // Error de conexión o red
       console.error('Error al llamar a send-email.php:', fetchError);
       
+      // Si es un error de red en desarrollo, no marcar como fallido crítico
+      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const errorMessage = isDevelopment 
+        ? `⚠️ Servidor PHP no disponible en desarrollo local: ${fetchError.message}`
+        : `Error de conexión: ${fetchError.message}`;
+      
       const messageId = await registerMessage({
         to,
         toName,
@@ -256,14 +307,20 @@ export const sendEmail = async ({
         body: text || html,
         type,
         recipientType,
-        status: 'Fallido',
-        errorMessage: `Error de conexión: ${fetchError.message}`,
+        status: isDevelopment ? 'Simulado' : 'Fallido',
+        simulated: isDevelopment,
+        errorMessage: errorMessage,
         module,
         event,
         metadata
       });
 
-      return { success: false, error: `Error de conexión: ${fetchError.message}`, messageId };
+      return { 
+        success: false, 
+        error: errorMessage, 
+        messageId,
+        simulated: isDevelopment
+      };
     }
     
   } catch (error) {

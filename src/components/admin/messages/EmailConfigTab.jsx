@@ -92,8 +92,15 @@ function EmailConfigTab({ isDemo }) {
       if (result.success) {
         if (result.sent) {
           addNotification(`✅ Email de prueba enviado exitosamente a ${testEmail}. Revisa tu bandeja de entrada (y spam).`, 'success');
+        } else if (result.simulated) {
+          const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          if (isDev) {
+            addNotification(`⚠️ Modo desarrollo: El email se registró pero no se envió (servidor PHP no disponible localmente). Despliega en producción para envío real.`, 'warning');
+          } else {
+            addNotification(`⚠️ Email de prueba registrado en historial. Verifica la configuración SMTP si no se envió.`, 'warning');
+          }
         } else {
-          addNotification(`⚠️ Email de prueba registrado en historial. Verifica la configuración SMTP si no se envió.`, 'warning');
+          addNotification(`✅ Email de prueba procesado. Revisa el historial de mensajes para ver el estado.`, 'info');
         }
       } else {
         addNotification(`Error: ${result.error}`, 'error');
