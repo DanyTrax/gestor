@@ -237,24 +237,47 @@ export const sendEmail = async ({
             fromName: emailConfig.fromName
           }
         })
+      }).catch(networkError => {
+        // Error de red (endpoint no encontrado, CORS, etc.)
+        console.error('Error de red al llamar send-email.php:', networkError);
+        throw new Error(`No se pudo conectar con el servidor PHP. Verifica que send-email.php esté en el servidor. Error: ${networkError.message}`);
       });
 
       // Verificar que la respuesta sea válida
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText = await response.text().catch(() => 'No se pudo leer la respuesta del servidor');
         console.error('Error HTTP:', response.status, errorText);
-        throw new Error(`Error del servidor (${response.status}): ${errorText.substring(0, 100)}`);
+        
+        // Si es 404, el archivo no existe
+        if (response.status === 404) {
+          throw new Error(`El archivo send-email.php no se encontró en el servidor (404). Verifica que esté en el directorio raíz.`);
+        }
+        
+        throw new Error(`Error del servidor (${response.status}): ${errorText.substring(0, 200)}`);
       }
 
       // Verificar que sea JSON válido
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        const textResponse = await response.text();
+        const textResponse = await response.text().catch(() => 'No se pudo leer la respuesta');
         console.error('Respuesta no es JSON:', textResponse.substring(0, 200));
-        throw new Error(`El servidor no devolvió JSON. Respuesta: ${textResponse.substring(0, 100)}`);
+        
+        // Si la respuesta parece ser HTML (página de error), es porque PHP no está configurado
+        if (textResponse.includes('<html') || textResponse.includes('<!DOCTYPE')) {
+          throw new Error(`El servidor devolvió HTML en lugar de JSON. Posiblemente PHP no está configurado o hay un error en send-email.php.`);
+        }
+        
+        throw new Error(`El servidor no devolvió JSON. Respuesta: ${textResponse.substring(0, 200)}`);
       }
 
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (jsonError) {
+        const textResponse = await response.text().catch(() => 'No se pudo leer la respuesta');
+        console.error('Error al parsear JSON:', jsonError, 'Respuesta:', textResponse.substring(0, 200));
+        throw new Error(`Respuesta inválida del servidor (no es JSON válido): ${textResponse.substring(0, 200)}`);
+      }
 
       if (result.success) {
         // Registrar mensaje como enviado exitosamente
@@ -296,9 +319,12 @@ export const sendEmail = async ({
       
       // Si es un error de red en desarrollo, no marcar como fallido crítico
       const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      
+      // En producción (cPanel/Dockge), siempre marcar como Fallido si hay error
+      // Solo en desarrollo local marcar como Simulado
       const errorMessage = isDevelopment 
         ? `⚠️ Servidor PHP no disponible en desarrollo local: ${fetchError.message}`
-        : `Error de conexión: ${fetchError.message}`;
+        : `❌ Error al enviar email: ${fetchError.message}`;
       
       const messageId = await registerMessage({
         to,
