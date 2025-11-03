@@ -33,26 +33,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if ($step == 3) {
-        // Ejecutar comandos
-        $commands = [
-            'php ../artisan key:generate --force',
-            'php ../artisan migrate --force',
-            'php ../artisan session:table',
-            'php ../artisan migrate --force',
-            'php ../artisan config:cache',
-            'php ../artisan route:cache',
-            'php ../artisan view:cache',
-        ];
+        // Verificar si podemos ejecutar comandos
+        $canExecute = function_exists('exec') && !in_array('exec', explode(',', ini_get('disable_functions')));
         
-        foreach ($commands as $cmd) {
-            exec($cmd . ' 2>&1', $output, $return);
-            if ($return !== 0) {
-                $errors[] = "Error en: $cmd - " . implode("\n", $output);
+        if ($canExecute) {
+            // Ejecutar comandos
+            $commands = [
+                'php ../artisan key:generate --force',
+                'php ../artisan migrate --force',
+                'php ../artisan session:table',
+                'php ../artisan migrate --force',
+                'php ../artisan config:cache',
+                'php ../artisan route:cache',
+                'php ../artisan view:cache',
+            ];
+            
+            foreach ($commands as $cmd) {
+                exec($cmd . ' 2>&1', $output, $return);
+                if ($return !== 0) {
+                    $errors[] = "Error en: $cmd - " . implode("\n", $output);
+                }
             }
-        }
-        
-        if (empty($errors)) {
-            $success[] = "Laravel instalado correctamente";
+            
+            if (empty($errors)) {
+                $success[] = "Laravel instalado correctamente";
+            }
+        } else {
+            // No se pueden ejecutar comandos, mostrar instrucciones
+            $manualMode = true;
         }
     }
     
@@ -62,23 +70,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = $_POST['password'];
         $name = $_POST['name'];
         
-        $tinkerCmd = "php ../artisan tinker --execute=\"
-            \$user = App\Models\User::create([
-                'email' => '$email',
-                'password' => bcrypt('$password'),
-                'full_name' => '$name',
-                'role' => 'superadmin',
-                'status' => 'active',
-                'is_profile_complete' => true
-            ]);
-            echo 'Usuario creado: ' . \$user->email;
-        \"";
+        $canExecute = function_exists('exec') && !in_array('exec', explode(',', ini_get('disable_functions')));
         
-        exec($tinkerCmd . ' 2>&1', $output, $return);
-        if ($return === 0) {
-            $success[] = "Usuario creado: $email";
+        if ($canExecute) {
+            $tinkerCmd = "php ../artisan tinker --execute=\"
+                \$user = App\Models\User::create([
+                    'email' => '$email',
+                    'password' => bcrypt('$password'),
+                    'full_name' => '$name',
+                    'role' => 'superadmin',
+                    'status' => 'active',
+                    'is_profile_complete' => true
+                ]);
+                echo 'Usuario creado: ' . \$user->email;
+            \"";
+            
+            exec($tinkerCmd . ' 2>&1', $output, $return);
+            if ($return === 0) {
+                $success[] = "Usuario creado: $email";
+            } else {
+                $errors[] = "Error al crear usuario: " . implode("\n", $output);
+                $manualUserCreation = true;
+            }
         } else {
-            $errors[] = "Error al crear usuario: " . implode("\n", $output);
+            $manualUserCreation = true;
         }
     }
 }
@@ -123,29 +138,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <h2 class="text-xl font-semibold mb-4">Paso 1: Verificar Requisitos</h2>
                         
                         <?php
+                        // Verificar si shell_exec está disponible
+                        $shellExecAvailable = function_exists('shell_exec') && !in_array('shell_exec', explode(',', ini_get('disable_functions')));
+                        
                         $checks = [
                             'PHP >= 8.1' => version_compare(PHP_VERSION, '8.1.0', '>='),
-                            'Composer' => shell_exec('composer --version') !== null,
+                            'Composer' => $shellExecAvailable ? (shell_exec('composer --version') !== null) : null,
                             'Directorio .env.example' => file_exists('../.env.example'),
                             'Directorio storage' => is_dir('../storage'),
                             'Permisos storage' => is_writable('../storage'),
+                            'shell_exec disponible' => $shellExecAvailable,
                         ];
                         ?>
                         
                         <ul class="space-y-2">
                             <?php foreach ($checks as $check => $ok): ?>
                                 <li class="flex items-center">
-                                    <?php if ($ok): ?>
+                                    <?php if ($ok === true): ?>
                                         <span class="text-green-500 mr-2">✅</span>
-                                    <?php else: ?>
+                                    <?php elseif ($ok === false): ?>
                                         <span class="text-red-500 mr-2">❌</span>
+                                    <?php else: ?>
+                                        <span class="text-yellow-500 mr-2">⚠️</span>
                                     <?php endif; ?>
                                     <?= htmlspecialchars($check) ?>
+                                    <?php if ($ok === null): ?>
+                                        <span class="text-gray-500 text-sm ml-2">(No verificado)</span>
+                                    <?php endif; ?>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
                         
-                        <?php if (array_sum($checks) === count($checks)): ?>
+                        <?php if (!$shellExecAvailable): ?>
+                            <div class="mt-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+                                <p class="font-semibold">⚠️ shell_exec() no está disponible</p>
+                                <p class="text-sm mt-2">No se pueden ejecutar comandos automáticamente. El instalador te guiará paso a paso con instrucciones manuales.</p>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <?php 
+                        $requiredChecks = array_filter($checks, function($k) {
+                            return in_array($k, ['PHP >= 8.1', 'Directorio .env.example', 'Directorio storage', 'Permisos storage']);
+                        }, ARRAY_FILTER_USE_KEY);
+                        $allRequiredOk = array_sum(array_filter($requiredChecks, function($v) { return $v === true; })) === count(array_filter($requiredChecks, function($v) { return $v !== null; }));
+                        ?>
+                        
+                        <?php if ($allRequiredOk): ?>
                             <a href="?step=2" class="mt-4 inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
                                 Siguiente →
                             </a>
@@ -194,51 +232,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php elseif ($step == 3): ?>
                     <div class="mb-6">
                         <h2 class="text-xl font-semibold mb-4">Paso 3: Instalar Laravel</h2>
-                        <p class="mb-4">Se ejecutarán los siguientes comandos:</p>
-                        <ul class="list-disc list-inside mb-4 space-y-1">
-                            <li>Generar APP_KEY</li>
-                            <li>Ejecutar migraciones (crear tablas)</li>
-                            <li>Crear tabla de sesiones</li>
-                            <li>Optimizar cache</li>
-                        </ul>
                         
-                        <form method="POST">
-                            <input type="hidden" name="step" value="3">
-                            <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
-                                Instalar Ahora
-                            </button>
-                        </form>
+                        <?php 
+                        $canExecute = function_exists('exec') && !in_array('exec', explode(',', ini_get('disable_functions')));
+                        $manualMode = isset($manualMode) && $manualMode;
+                        ?>
+                        
+                        <?php if ($canExecute && !$manualMode): ?>
+                            <p class="mb-4">Se ejecutarán los siguientes comandos:</p>
+                            <ul class="list-disc list-inside mb-4 space-y-1">
+                                <li>Generar APP_KEY</li>
+                                <li>Ejecutar migraciones (crear tablas)</li>
+                                <li>Crear tabla de sesiones</li>
+                                <li>Optimizar cache</li>
+                            </ul>
+                            
+                            <form method="POST">
+                                <input type="hidden" name="step" value="3">
+                                <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+                                    Instalar Ahora
+                                </button>
+                            </form>
+                        <?php else: ?>
+                            <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+                                <p class="font-semibold">⚠️ Modo Manual Requerido</p>
+                                <p class="text-sm mt-2">No se pueden ejecutar comandos automáticamente. Sigue estas instrucciones:</p>
+                            </div>
+                            
+                            <div class="bg-gray-50 p-4 rounded mb-4">
+                                <h3 class="font-semibold mb-2">Instrucciones para SSH/Terminal:</h3>
+                                <ol class="list-decimal list-inside space-y-2 text-sm">
+                                    <li>Conecta por SSH o usa la Terminal de cPanel</li>
+                                    <li>Ve al directorio: <code class="bg-gray-200 px-2 py-1 rounded">cd ~/clients.dowgroupcol.com/new</code></li>
+                                    <li>Ejecuta estos comandos uno por uno:</li>
+                                </ol>
+                                <pre class="bg-gray-900 text-green-400 p-4 rounded mt-4 overflow-x-auto text-xs"><code>php artisan key:generate --force
+php artisan migrate --force
+php artisan session:table
+php artisan migrate --force
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache</code></pre>
+                            </div>
+                            
+                            <p class="mb-4">Después de ejecutar los comandos, continúa al siguiente paso:</p>
+                            <a href="?step=4" class="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                                Continuar al Paso 4 →
+                            </a>
+                        <?php endif; ?>
                     </div>
                 
                 <!-- Paso 4: Crear Usuario -->
                 <?php elseif ($step == 4): ?>
-                    <form method="POST" class="space-y-4">
-                        <input type="hidden" name="step" value="4">
-                        <input type="hidden" name="create_user" value="1">
-                        <h2 class="text-xl font-semibold mb-4">Paso 4: Crear Usuario Administrador</h2>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
-                            <input type="text" name="name" value="<?= $_POST['name'] ?? 'Administrador' ?>" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    <?php 
+                    $canExecute = function_exists('exec') && !in_array('exec', explode(',', ini_get('disable_functions')));
+                    $manualUserCreation = isset($manualUserCreation) && $manualUserCreation;
+                    ?>
+                    
+                    <?php if ($canExecute && !$manualUserCreation): ?>
+                        <form method="POST" class="space-y-4">
+                            <input type="hidden" name="step" value="4">
+                            <input type="hidden" name="create_user" value="1">
+                            <h2 class="text-xl font-semibold mb-4">Paso 4: Crear Usuario Administrador</h2>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                                <input type="text" name="name" value="<?= $_POST['name'] ?? 'Administrador' ?>" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input type="email" name="email" value="<?= $_POST['email'] ?? '' ?>" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                                <input type="password" name="password" value="<?= $_POST['password'] ?? '' ?>" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                            </div>
+                            
+                            <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+                                Crear Usuario
+                            </button>
+                        </form>
+                    <?php else: ?>
+                        <div class="mb-6">
+                            <h2 class="text-xl font-semibold mb-4">Paso 4: Crear Usuario Administrador</h2>
+                            
+                            <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+                                <p class="font-semibold">⚠️ Creación Manual Requerida</p>
+                                <p class="text-sm mt-2">Ejecuta este comando desde SSH/Terminal:</p>
+                            </div>
+                            
+                            <div class="bg-gray-50 p-4 rounded mb-4">
+                                <h3 class="font-semibold mb-2">Comando SSH:</h3>
+                                <pre class="bg-gray-900 text-green-400 p-4 rounded overflow-x-auto text-xs"><code>cd ~/clients.dowgroupcol.com/new
+php artisan tinker</code></pre>
+                                <p class="text-sm mt-2 mb-2">Luego en tinker, copia y pega (reemplaza los datos):</p>
+                                <pre class="bg-gray-900 text-green-400 p-4 rounded overflow-x-auto text-xs"><code>App\Models\User::create([
+    'email' => 'admin@tudominio.com',
+    'password' => bcrypt('TuContraseña123!'),
+    'full_name' => 'Administrador',
+    'role' => 'superadmin',
+    'status' => 'active',
+    'is_profile_complete' => true
+]);
+exit</code></pre>
+                            </div>
+                            
+                            <p class="mb-4">Después de crear el usuario, continúa al siguiente paso:</p>
+                            <a href="?step=5" class="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                                Finalizar →
+                            </a>
                         </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input type="email" name="email" value="<?= $_POST['email'] ?? '' ?>" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-                            <input type="password" name="password" value="<?= $_POST['password'] ?? '' ?>" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
-                        </div>
-                        
-                        <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
-                            Crear Usuario
-                        </button>
-                    </form>
+                    <?php endif; ?>
                 
                 <!-- Paso 5: Completado -->
                 <?php elseif ($step == 5): ?>
