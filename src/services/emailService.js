@@ -6,7 +6,7 @@
 import { collection, addDoc, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, appId } from '../config/firebase';
 
-// Configuración de email (se carga desde Firestore)
+// Variable para almacenar la configuración
 let emailConfig = null;
 
 /**
@@ -305,9 +305,6 @@ export const testEmailConfig = async (testEmail) => {
     return { success: false, error: error.message };
   }
 };
-
-// Variable para almacenar la configuración
-let emailConfig = null;
 
 // Cargar configuración al importar
 loadEmailConfig().then(config => {

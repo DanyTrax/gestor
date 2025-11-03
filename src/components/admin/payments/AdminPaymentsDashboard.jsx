@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
+import { sendEmail } from '../../../services/emailService';
 import { CreditCardIcon, SearchIcon, FilterIcon, SettingsIcon, CalendarIcon, EyeIcon, TrashIcon } from '../../icons';
 import ActionDropdown from '../../common/ActionDropdown';
 import PaymentConfigDashboard from './PaymentConfigDashboard';
@@ -391,7 +392,82 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
         
         await generateInvoicePDF(updatedPayment);
 
-        // 2. Actualizar servicio según el tipo
+        // 2. Enviar email de aprobación al cliente
+        try {
+          const clientEmail = updatedPayment.clientEmail || updatedPayment.userEmail;
+          const clientName = updatedPayment.clientName || 'Cliente';
+          
+          if (clientEmail && clientEmail !== 'N/A') {
+            const invoiceNumber = 'INV-' + paymentId.slice(-8).toUpperCase();
+            const amountFormatted = updatedPayment.currency === 'COP' 
+              ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(updatedPayment.amount)
+              : new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'USD' }).format(updatedPayment.amount);
+
+            const emailSubject = `Pago Aprobado - ${updatedPayment.serviceNumber || 'N/A'}`;
+            const emailHtml = `
+              <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #059669;">✅ Pago Aprobado</h2>
+                <p>Estimado/a <strong>${clientName}</strong>,</p>
+                <p>Su pago por el servicio <strong>${updatedPayment.serviceNumber || 'N/A'}</strong> ha sido aprobado exitosamente.</p>
+                <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                  <h3 style="margin-top: 0;">Detalles del Pago:</h3>
+                  <ul style="list-style: none; padding: 0;">
+                    <li><strong>Servicio:</strong> ${updatedPayment.serviceType || 'N/A'}</li>
+                    <li><strong>Monto:</strong> ${amountFormatted}</li>
+                    <li><strong>Método:</strong> ${updatedPayment.gateway || updatedPayment.paymentMethod || 'N/A'}</li>
+                    <li><strong>Factura:</strong> ${invoiceNumber}</li>
+                    <li><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</li>
+                  </ul>
+                </div>
+                <p>Su servicio está ahora activo. Puede descargar la factura desde su panel de pagos.</p>
+                <p style="margin-top: 30px;">Gracias por su pago.</p>
+                <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">
+                  Este es un email automático, por favor no responda.
+                </p>
+              </div>
+            `;
+            const emailText = `
+Pago Aprobado
+
+Estimado/a ${clientName},
+
+Su pago por el servicio ${updatedPayment.serviceNumber || 'N/A'} ha sido aprobado exitosamente.
+
+Detalles del Pago:
+- Servicio: ${updatedPayment.serviceType || 'N/A'}
+- Monto: ${amountFormatted}
+- Método: ${updatedPayment.gateway || updatedPayment.paymentMethod || 'N/A'}
+- Factura: ${invoiceNumber}
+- Fecha: ${new Date().toLocaleDateString('es-ES')}
+
+Su servicio está ahora activo. Puede descargar la factura desde su panel de pagos.
+
+Gracias por su pago.
+            `;
+
+            await sendEmail({
+              to: clientEmail,
+              toName: clientName,
+              subject: emailSubject,
+              html: emailHtml,
+              text: emailText,
+              type: 'Aprobación',
+              recipientType: 'Cliente',
+              module: 'payments',
+              event: 'approval',
+              metadata: {
+                paymentId: paymentId,
+                serviceId: updatedPayment.serviceId,
+                invoiceNumber: invoiceNumber
+              }
+            });
+          }
+        } catch (emailError) {
+          console.error('Error enviando email de aprobación:', emailError);
+          // No fallar el proceso completo si falla el email
+        }
+
+        // 3. Actualizar servicio según el tipo
         const serviceId = updatedPayment.serviceId;
         if (serviceId) {
           try {
@@ -429,6 +505,74 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
         }
 
         addNotification(`Pago completado, servicio actualizado e invoice generado`, "success");
+      } else if (newStatus === 'Fallido' || newStatus === 'Cancelado') {
+        // Enviar email de rechazo/cancelación al cliente
+        try {
+          const clientEmail = currentPayment.clientEmail || currentPayment.userEmail;
+          const clientName = currentPayment.clientName || 'Cliente';
+          
+          if (clientEmail && clientEmail !== 'N/A') {
+            const emailSubject = `Actualización de Pago - ${currentPayment.serviceNumber || 'N/A'}`;
+            const emailHtml = `
+              <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #dc2626;">⚠️ ${newStatus === 'Fallido' ? 'Pago Fallido' : 'Pago Cancelado'}</h2>
+                <p>Estimado/a <strong>${clientName}</strong>,</p>
+                <p>Lamentamos informarle que su pago por el servicio <strong>${currentPayment.serviceNumber || 'N/A'}</strong> ha sido ${newStatus === 'Fallido' ? 'rechazado' : 'cancelado'}.</p>
+                <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+                  <p style="margin: 0;"><strong>Por favor, verifique:</strong></p>
+                  <ul style="list-style: none; padding: 0; margin: 10px 0 0 0;">
+                    <li>• Los datos de su método de pago</li>
+                    <li>• Que tenga fondos suficientes</li>
+                    <li>• Que su método de pago esté activo</li>
+                  </ul>
+                </div>
+                <p>Si necesita ayuda, por favor contacte a nuestro equipo de soporte.</p>
+                <p style="margin-top: 30px;">Gracias por su comprensión.</p>
+                <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">
+                  Este es un email automático, por favor no responda.
+                </p>
+              </div>
+            `;
+            const emailText = `
+${newStatus === 'Fallido' ? 'Pago Fallido' : 'Pago Cancelado'}
+
+Estimado/a ${clientName},
+
+Lamentamos informarle que su pago por el servicio ${currentPayment.serviceNumber || 'N/A'} ha sido ${newStatus === 'Fallido' ? 'rechazado' : 'cancelado'}.
+
+Por favor, verifique:
+- Los datos de su método de pago
+- Que tenga fondos suficientes
+- Que su método de pago esté activo
+
+Si necesita ayuda, por favor contacte a nuestro equipo de soporte.
+
+Gracias por su comprensión.
+            `;
+
+            await sendEmail({
+              to: clientEmail,
+              toName: clientName,
+              subject: emailSubject,
+              html: emailHtml,
+              text: emailText,
+              type: 'Rechazo',
+              recipientType: 'Cliente',
+              module: 'payments',
+              event: 'rejection',
+              metadata: {
+                paymentId: paymentId,
+                serviceId: currentPayment.serviceId,
+                status: newStatus
+              }
+            });
+          }
+        } catch (emailError) {
+          console.error('Error enviando email de rechazo:', emailError);
+          // No fallar el proceso completo si falla el email
+        }
+        
+        addNotification(`Estado del pago actualizado a ${newStatus}`, "success");
       } else {
         addNotification(`Estado del pago actualizado a ${newStatus}`, "success");
       }
