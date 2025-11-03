@@ -184,13 +184,14 @@ export const sendEmail = async ({
       return { success: false, error: 'Notification disabled' };
     }
 
-    // Aquí iría la lógica de envío real con SMTP
-    // Por ahora, simulamos el envío y registramos en Firestore
+    // IMPORTANTE: Actualmente NO se envían emails reales
+    // Solo se registran en Firestore para historial
+    // Para envío real, necesitas implementar un backend (Firebase Functions o servidor Node.js)
     
     // TODO: Implementar envío real con nodemailer o similar
     // const result = await sendEmailViaSMTP({ to, subject, html, text });
     
-    // Registrar mensaje exitoso
+    // Registrar mensaje como SIMULADO (no enviado realmente)
     const messageId = await registerMessage({
       to,
       toName,
@@ -198,13 +199,17 @@ export const sendEmail = async ({
       body: text || html,
       type,
       recipientType,
-      status: 'Enviado', // Cambiar a 'Entregado' cuando se implemente SMTP real
+      status: 'Simulado', // Estado claro: no se envió realmente
+      simulated: true, // Flag para identificar que es simulado
+      errorMessage: '⚠️ Email no enviado realmente. Servicio SMTP no implementado. Solo registrado en historial.',
       module,
       event,
       metadata
     });
 
-    return { success: true, messageId };
+    console.warn('⚠️ Email SIMULADO - No se envió realmente. Configura backend para envío real.');
+
+    return { success: true, messageId, simulated: true, warning: 'Email registrado pero no enviado. Necesitas backend para envío real.' };
     
   } catch (error) {
     console.error('Error sending email:', error);

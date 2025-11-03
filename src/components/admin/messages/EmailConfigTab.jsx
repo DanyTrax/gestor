@@ -90,7 +90,11 @@ function EmailConfigTab({ isDemo }) {
       const result = await testEmailConfig(testEmail);
       
       if (result.success) {
-        addNotification(`Email de prueba enviado a ${testEmail}. Revisa tu bandeja de entrada.`, 'success');
+        if (result.simulated) {
+          addNotification(`⚠️ Email de prueba registrado (NO enviado realmente). Ve al historial de mensajes para verlo.`, 'warning');
+        } else {
+          addNotification(`Email de prueba enviado a ${testEmail}. Revisa tu bandeja de entrada.`, 'success');
+        }
       } else {
         addNotification(`Error: ${result.error}`, 'error');
       }
@@ -238,9 +242,16 @@ function EmailConfigTab({ isDemo }) {
       {/* Testeador de Email */}
       <div>
         <h3 className="text-xl font-bold mb-4">Probar Configuración</h3>
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+          <p className="text-sm font-medium text-orange-800 mb-2">⚠️ Importante:</p>
+          <p className="text-sm text-orange-700">
+            Actualmente el sistema <strong>NO envía emails reales</strong>. Solo se registran en el historial.
+            Para envío real necesitas implementar un backend con SMTP (Firebase Functions o servidor Node.js).
+          </p>
+        </div>
         <div className="bg-white p-6 rounded-lg shadow-md">
           <p className="text-sm text-gray-600 mb-4">
-            Envía un email de prueba para verificar que la configuración SMTP está funcionando correctamente.
+            El email de prueba se registrará en el historial con estado "Simulado" para verificar la configuración.
           </p>
           <div className="flex gap-4">
             <input

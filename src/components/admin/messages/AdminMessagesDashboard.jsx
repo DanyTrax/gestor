@@ -19,7 +19,7 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [showMessageModal, setShowMessageModal] = useState(false);
 
-  const messageStatusOptions = ['Todos', 'Enviado', 'Entregado', 'Leído', 'Fallido', 'Pendiente'];
+  const messageStatusOptions = ['Todos', 'Enviado', 'Entregado', 'Simulado', 'Leído', 'Fallido', 'Cancelado', 'Pendiente'];
   const messageTypeOptions = ['Todos', 'Aprobación', 'Rechazo', 'Recordatorio', 'Notificación', 'Activación', 'Sistema'];
   const recipientTypeOptions = ['Todos', 'Cliente', 'Administrador', 'Sistema'];
 
@@ -152,8 +152,10 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
     const statusMap = {
       'Enviado': 'bg-blue-100 text-blue-800',
       'Entregado': 'bg-green-100 text-green-800',
+      'Simulado': 'bg-orange-100 text-orange-800',
       'Leído': 'bg-purple-100 text-purple-800',
       'Fallido': 'bg-red-100 text-red-800',
+      'Cancelado': 'bg-gray-100 text-gray-800',
       'Pendiente': 'bg-yellow-100 text-yellow-800'
     };
     return statusMap[status] || 'bg-gray-100 text-gray-800';
@@ -196,6 +198,7 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
     switch (status) {
       case 'Enviado': return <ClockIcon />;
       case 'Entregado': return <CheckIcon />;
+      case 'Simulado': return <span title="⚠️ No enviado realmente">⚠️</span>;
       case 'Leído': return <EyeIcon />;
       case 'Fallido': return <XIcon />;
       case 'Pendiente': return <ClockIcon />;
@@ -232,6 +235,25 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
         <h3 className="text-xl font-bold text-gray-900">Historial de Mensajes</h3>
         <div className="text-sm text-gray-500">
           {filteredMessages.length} mensaje{filteredMessages.length !== 1 ? 's' : ''} encontrado{filteredMessages.length !== 1 ? 's' : ''}
+        </div>
+      </div>
+
+      {/* Aviso importante sobre emails simulados */}
+      <div className="bg-orange-50 border-l-4 border-orange-400 p-4 mb-6 rounded">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <span className="text-orange-400 text-2xl">⚠️</span>
+          </div>
+          <div className="ml-3">
+            <h4 className="text-sm font-medium text-orange-800">Emails No Enviados Realmente</h4>
+            <p className="text-sm text-orange-700 mt-1">
+              Los emails con estado <span className="font-semibold">"Simulado"</span> o badge <span className="font-semibold">"⚠️ Solo Registrado"</span> 
+              <strong> NO se enviaron realmente</strong>. Solo se registraron en el historial para auditoría.
+            </p>
+            <p className="text-xs text-orange-600 mt-2">
+              Para enviar emails reales, necesitas implementar un backend con SMTP. Ver documentación en <code>MODULO-MENSAJERIA.md</code>
+            </p>
+          </div>
         </div>
       </div>
 
@@ -350,6 +372,11 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                     <div className="ml-2 text-gray-400">
                       {getStatusIcon(message.status)}
                     </div>
+                    {message.simulated && (
+                      <span className="ml-2 px-2 py-1 text-xs bg-orange-200 text-orange-800 rounded-full" title="Este email NO se envió realmente, solo se registró en el historial">
+                        ⚠️ Solo Registrado
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -473,7 +500,16 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                 </div>
               </div>
 
-              {selectedMessage.errorMessage && (
+              {selectedMessage.simulated && (
+                <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+                  <label className="block text-sm font-medium text-orange-700 mb-1">⚠️ Email Simulado</label>
+                  <div className="text-sm text-orange-600">
+                    Este email NO se envió realmente. Solo se registró en el historial del sistema.
+                    Para enviar emails reales, necesitas configurar un backend con SMTP (Firebase Functions o servidor Node.js).
+                  </div>
+                </div>
+              )}
+              {selectedMessage.errorMessage && !selectedMessage.simulated && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                   <label className="block text-sm font-medium text-red-700 mb-1">Error</label>
                   <div className="text-sm text-red-600">{selectedMessage.errorMessage}</div>
