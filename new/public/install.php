@@ -14,6 +14,27 @@ $step = $_GET['step'] ?? 1;
 $errors = [];
 $success = [];
 
+// Crear directorios necesarios si no existen
+if (!is_dir('../storage')) {
+    mkdir('../storage', 0755, true);
+    mkdir('../storage/framework', 0755, true);
+    mkdir('../storage/framework/sessions', 0755, true);
+    mkdir('../storage/framework/views', 0755, true);
+    mkdir('../storage/framework/cache', 0755, true);
+    mkdir('../storage/logs', 0755, true);
+    mkdir('../storage/app', 0755, true);
+    mkdir('../storage/app/public', 0755, true);
+    mkdir('../bootstrap/cache', 0755, true);
+    $success[] = "Directorio storage creado";
+}
+
+// Intentar configurar permisos
+if (is_dir('../storage')) {
+    @chmod('../storage', 0775);
+    @chmod('../bootstrap/cache', 0775);
+    $success[] = "Permisos configurados";
+}
+
 // Procesar formularios
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $step = (int)$_POST['step'];
@@ -141,12 +162,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Verificar si shell_exec está disponible
                         $shellExecAvailable = function_exists('shell_exec') && !in_array('shell_exec', explode(',', ini_get('disable_functions')));
                         
+                        // Verificar directorios
+                        $storageExists = is_dir('../storage');
+                        $storageWritable = is_writable('../storage');
+                        $bootstrapCacheExists = is_dir('../bootstrap/cache');
+                        $bootstrapCacheWritable = is_writable('../bootstrap/cache');
+                        
                         $checks = [
                             'PHP >= 8.1' => version_compare(PHP_VERSION, '8.1.0', '>='),
                             'Composer' => $shellExecAvailable ? (shell_exec('composer --version') !== null) : null,
                             'Directorio .env.example' => file_exists('../.env.example'),
-                            'Directorio storage' => is_dir('../storage'),
-                            'Permisos storage' => is_writable('../storage'),
+                            'Directorio storage' => $storageExists,
+                            'Permisos storage' => $storageWritable,
+                            'Directorio bootstrap/cache' => $bootstrapCacheExists,
+                            'Permisos bootstrap/cache' => $bootstrapCacheWritable,
                             'shell_exec disponible' => $shellExecAvailable,
                         ];
                         ?>
@@ -176,19 +205,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                         <?php endif; ?>
                         
+                        <?php if (!$storageExists || !$storageWritable || !$bootstrapCacheExists || !$bootstrapCacheWritable): ?>
+                            <div class="mt-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+                                <p class="font-semibold">⚠️ Problemas con directorios o permisos</p>
+                                <p class="text-sm mt-2">Si los directorios no se crearon automáticamente, ejecuta estos comandos desde SSH:</p>
+                                <pre class="bg-gray-900 text-green-400 p-3 rounded mt-2 text-xs overflow-x-auto"><code>cd ~/clients.dowgroupcol.com/new
+mkdir -p storage/framework/{sessions,views,cache}
+mkdir -p storage/logs storage/app/public
+mkdir -p bootstrap/cache
+chmod -R 775 storage bootstrap/cache</code></pre>
+                            </div>
+                        <?php endif; ?>
+                        
                         <?php 
-                        $requiredChecks = array_filter($checks, function($k) {
-                            return in_array($k, ['PHP >= 8.1', 'Directorio .env.example', 'Directorio storage', 'Permisos storage']);
-                        }, ARRAY_FILTER_USE_KEY);
-                        $allRequiredOk = array_sum(array_filter($requiredChecks, function($v) { return $v === true; })) === count(array_filter($requiredChecks, function($v) { return $v !== null; }));
+                        // Verificar solo los requisitos críticos
+                        $criticalChecks = [
+                            'PHP >= 8.1' => $checks['PHP >= 8.1'],
+                            'Directorio .env.example' => $checks['Directorio .env.example'],
+                        ];
+                        
+                        $criticalOk = array_sum(array_filter($criticalChecks)) === count($criticalChecks);
                         ?>
                         
-                        <?php if ($allRequiredOk): ?>
+                        <?php if ($criticalOk): ?>
                             <a href="?step=2" class="mt-4 inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
-                                Siguiente →
+                                Continuar (Algunos checks pueden requerir configuración manual) →
                             </a>
                         <?php else: ?>
-                            <p class="mt-4 text-red-600">Por favor corrige los errores antes de continuar</p>
+                            <p class="mt-4 text-red-600">Por favor corrige los errores críticos antes de continuar</p>
                         <?php endif; ?>
                     </div>
                 
