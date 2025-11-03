@@ -88,20 +88,14 @@ function AdminSettingsDashboard({ isDemo, setIsDemoMode, onLogout }) {
         </div>
 
         <div>
-          <h3 className="text-xl font-bold mt-8 mb-4">Branding</h3>
-          <input name="logoUrl" value={settings.logoUrl || ''} onChange={handleChange} placeholder="URL del Logo (enlace a la imagen)" className="w-full p-2 border rounded-md" />
-          {settings.logoUrl && <img src={settings.logoUrl} alt="Vista previa del logo" className="mt-4 max-h-20 bg-gray-100 p-2 rounded" />}
-        </div>
-         
-        <div>
-          <h3 className="text-xl font-bold mb-4">Seguridad</h3>
+          <h3 className="text-xl font-bold mt-8 mb-4">Seguridad</h3>
           <div className="p-4 bg-gray-50 rounded-lg space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="font-medium text-gray-800">Tiempo de Inactividad (minutos)</p>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex-1 min-w-[300px]">
+                <p className="font-medium text-gray-800 mb-2">Tiempo de Inactividad (minutos)</p>
                 <p className="text-sm text-gray-500">Tiempo máximo de inactividad antes de cerrar sesión automáticamente. Mínimo: 1 minuto, Máximo: 120 minutos.</p>
               </div>
-              <div className="ml-4">
+              <div className="flex items-center gap-2">
                 <input
                   type="number"
                   name="inactivityTimeoutMinutes"
@@ -109,15 +103,15 @@ function AdminSettingsDashboard({ isDemo, setIsDemoMode, onLogout }) {
                   onChange={handleChange}
                   min="1"
                   max="120"
-                  className="w-24 p-2 border rounded-md text-center"
+                  className="w-24 p-2 border border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="10"
                 />
-                <span className="ml-2 text-gray-600">min</span>
+                <span className="text-gray-600 font-medium">min</span>
               </div>
             </div>
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded">
-              <p className="text-sm text-blue-800">
-                <strong>Actual:</strong> {settings.inactivityTimeoutMinutes || 10} minutos de inactividad
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+              <p className="text-sm text-blue-800 font-medium">
+                <strong>⚙️ Configuración Actual:</strong> {settings.inactivityTimeoutMinutes || 10} minutos de inactividad
               </p>
               <p className="text-xs text-blue-700 mt-1">
                 La sesión se cerrará automáticamente si no hay actividad del usuario (movimiento del mouse, teclado, clics, scroll).
@@ -126,6 +120,12 @@ function AdminSettingsDashboard({ isDemo, setIsDemoMode, onLogout }) {
           </div>
         </div>
 
+        <div>
+          <h3 className="text-xl font-bold mt-8 mb-4">Branding</h3>
+          <input name="logoUrl" value={settings.logoUrl || ''} onChange={handleChange} placeholder="URL del Logo (enlace a la imagen)" className="w-full p-2 border rounded-md" />
+          {settings.logoUrl && <img src={settings.logoUrl} alt="Vista previa del logo" className="mt-4 max-h-20 bg-gray-100 p-2 rounded" />}
+        </div>
+         
         <div>
            <h3 className="text-xl font-bold mb-4">Modo de Operación</h3>
           <div className="p-4 bg-gray-50 rounded-lg flex items-center justify-between">
