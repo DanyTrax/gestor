@@ -249,16 +249,28 @@ function EmailConfigTab({ isDemo }) {
       {/* Testeador de Email */}
       <div>
         <h3 className="text-xl font-bold mb-4">Probar Configuración</h3>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-          <p className="text-sm font-medium text-green-800 mb-2">✅ Emails Reales Activados:</p>
-          <p className="text-sm text-green-700">
-            Los emails se están enviando realmente usando el servidor SMTP configurado.
-            El email de prueba se enviará a la dirección que especifiques.
-          </p>
-        </div>
+        {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <p className="text-sm font-medium text-yellow-800 mb-2">⚠️ Modo Desarrollo Local:</p>
+            <p className="text-sm text-yellow-700">
+              Estás en desarrollo local. El servidor PHP no está disponible, por lo que los emails se registrarán en el historial pero <strong>NO se enviarán realmente</strong>.
+              Para probar el envío real, despliega la aplicación en producción (Dockge o cPanel).
+            </p>
+          </div>
+        ) : (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+            <p className="text-sm font-medium text-green-800 mb-2">✅ Emails Reales Activados:</p>
+            <p className="text-sm text-green-700">
+              Los emails se están enviando realmente usando el servidor SMTP configurado.
+              El email de prueba se enviará a la dirección que especifiques.
+            </p>
+          </div>
+        )}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <p className="text-sm text-gray-600 mb-4">
-            El email de prueba se enviará realmente usando tu configuración SMTP. Verifica tu bandeja de entrada.
+            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+              ? 'El email de prueba se registrará en el historial (modo desarrollo). En producción se enviará realmente.'
+              : 'El email de prueba se enviará realmente usando tu configuración SMTP. Verifica tu bandeja de entrada.'}
           </p>
           <div className="flex gap-4">
             <input
