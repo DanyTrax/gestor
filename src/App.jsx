@@ -110,6 +110,12 @@ function AppContent() {
       } catch (error) {
         console.error("❌ Error checking configuration:", error);
         
+        // Si es error de permisos, mostrar mensaje más específico
+        if (error.code === 'permission-denied') {
+          console.error('🔐 Error de permisos de Firestore. Verifica que las reglas estén configuradas correctamente.');
+          console.error('📋 Consulta firebase-rules.txt para las reglas necesarias.');
+        }
+        
         // En caso de cualquier error, asumir que está configurado
         console.log('⚠️ Error en verificación, asumiendo que el sistema está configurado');
         setCompanySettings({ companyName: 'Gestor de Cobros', isDemoMode: false });
@@ -156,6 +162,11 @@ function AppContent() {
           setLoading(false);
         }, (error) => {
           console.error("Error fetching user data:", error);
+          if (error.code === 'permission-denied') {
+            console.error('🔐 Error de permisos de Firestore al obtener datos del usuario.');
+            console.error('📋 Verifica que las reglas de Firestore permitan lectura/escritura para usuarios autenticados.');
+            addNotification("Error de permisos al acceder a datos del usuario. Verifica las reglas de Firestore.", "error");
+          }
           // Solo mostrar error si el usuario sigue autenticado
           if (currentUser) {
             addNotification("Error al cargar el perfil de usuario. Intenta nuevamente.", "error");

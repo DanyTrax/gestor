@@ -47,6 +47,20 @@ $html = $input['html'];
 $text = $input['text'] ?? strip_tags($html);
 $smtpConfig = $input['smtpConfig'];
 
+// Limpiar espacios en blanco de los campos SMTP (problema común)
+if (isset($smtpConfig['smtpUser'])) {
+    $smtpConfig['smtpUser'] = trim($smtpConfig['smtpUser']);
+}
+if (isset($smtpConfig['smtpPassword'])) {
+    $smtpConfig['smtpPassword'] = trim($smtpConfig['smtpPassword']);
+}
+if (isset($smtpConfig['smtpHost'])) {
+    $smtpConfig['smtpHost'] = trim($smtpConfig['smtpHost']);
+}
+if (isset($smtpConfig['fromEmail'])) {
+    $smtpConfig['fromEmail'] = trim($smtpConfig['fromEmail']);
+}
+
 // Validar configuración SMTP
 if (!isset($smtpConfig['smtpHost']) || !isset($smtpConfig['smtpPort']) || 
     !isset($smtpConfig['smtpUser']) || !isset($smtpConfig['smtpPassword']) ||

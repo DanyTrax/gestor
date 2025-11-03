@@ -37,7 +37,19 @@ function EmailConfigTab({ isDemo }) {
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'email_config');
     const unsubscribe = onSnapshot(configRef, (doc) => {
       if (doc.exists()) {
-        setConfig(doc.data());
+        const data = doc.data();
+        // Limpiar espacios en blanco al cargar datos
+        setConfig({
+          ...data,
+          smtpUser: data.smtpUser ? data.smtpUser.trim() : '',
+          smtpHost: data.smtpHost ? data.smtpHost.trim() : '',
+          fromEmail: data.fromEmail ? data.fromEmail.trim() : '',
+        });
+      }
+    }, (error) => {
+      console.error('Error loading email config:', error);
+      if (error.code === 'permission-denied') {
+        addNotification('Error de permisos al cargar configuración de email. Verifica las reglas de Firestore.', 'error');
       }
     });
 
@@ -46,9 +58,14 @@ function EmailConfigTab({ isDemo }) {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    // Limpiar espacios en blanco de campos críticos
+    let processedValue = value;
+    if (type === 'text' && (name === 'smtpUser' || name === 'smtpHost' || name === 'fromEmail')) {
+      processedValue = value.trim();
+    }
     setConfig(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : (type === 'number' ? parseInt(value) || 0 : value)
+      [name]: type === 'checkbox' ? checked : (type === 'number' ? parseInt(value) || 0 : processedValue)
     }));
   };
 
