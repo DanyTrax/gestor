@@ -39,18 +39,30 @@ if (is_dir('../storage')) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $step = (int)$_POST['step'];
     
-    if ($step == 2) {
+    if ($step == 2 && isset($_POST['db_database'])) {
         // Configurar .env
-        $envContent = file_get_contents('../.env.example');
-        $envContent = str_replace('DB_DATABASE=laravel', 'DB_DATABASE=' . $_POST['db_database'], $envContent);
-        $envContent = str_replace('DB_USERNAME=root', 'DB_USERNAME=' . $_POST['db_username'], $envContent);
-        $envContent = str_replace('DB_PASSWORD=', 'DB_PASSWORD=' . $_POST['db_password'], $envContent);
-        $envContent = str_replace('APP_URL=http://localhost', 'APP_URL=' . $_POST['app_url'], $envContent);
-        $envContent = str_replace('APP_DEBUG=true', 'APP_DEBUG=false', $envContent);
-        $envContent = str_replace('SESSION_DRIVER=file', 'SESSION_DRIVER=database', $envContent);
-        
-        file_put_contents('../.env', $envContent);
-        $success[] = "Archivo .env configurado correctamente";
+        if (!file_exists('../.env.example')) {
+            $errors[] = "No se encontró .env.example";
+        } else {
+            $envContent = file_get_contents('../.env.example');
+            
+            // Reemplazos más robustos
+            $envContent = preg_replace('/DB_DATABASE=.*/m', 'DB_DATABASE=' . $_POST['db_database'], $envContent);
+            $envContent = preg_replace('/DB_USERNAME=.*/m', 'DB_USERNAME=' . $_POST['db_username'], $envContent);
+            $envContent = preg_replace('/DB_PASSWORD=.*/m', 'DB_PASSWORD=' . $_POST['db_password'], $envContent);
+            $envContent = preg_replace('/APP_URL=.*/m', 'APP_URL=' . $_POST['app_url'], $envContent);
+            $envContent = preg_replace('/APP_DEBUG=.*/m', 'APP_DEBUG=false', $envContent);
+            $envContent = preg_replace('/SESSION_DRIVER=.*/m', 'SESSION_DRIVER=database', $envContent);
+            
+            if (file_put_contents('../.env', $envContent)) {
+                $success[] = "Archivo .env configurado correctamente";
+                // Redirigir al paso 3 automáticamente
+                header('Location: ?step=3');
+                exit;
+            } else {
+                $errors[] = "Error al escribir .env. Verifica permisos.";
+            }
+        }
     }
     
     if ($step == 3) {
@@ -238,32 +250,53 @@ chmod -R 775 storage bootstrap/cache</code></pre>
                 
                 <!-- Paso 2: Configurar Base de Datos -->
                 <?php elseif ($step == 2): ?>
-                    <form method="POST" class="space-y-4">
+                    <?php if (!empty($errors)): ?>
+                        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                            <ul>
+                                <?php foreach ($errors as $error): ?>
+                                    <li><?= htmlspecialchars($error) ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($success)): ?>
+                        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                            <ul>
+                                <?php foreach ($success as $msg): ?>
+                                    <li><?= htmlspecialchars($msg) ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <form method="POST" class="space-y-4" action="?step=2">
                         <input type="hidden" name="step" value="2">
                         <h2 class="text-xl font-semibold mb-4">Paso 2: Configurar Base de Datos</h2>
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">URL de la Aplicación</label>
-                            <input type="text" name="app_url" value="<?= $_POST['app_url'] ?? 'https://' . $_SERVER['HTTP_HOST'] . '/new/public' ?>" 
+                            <input type="text" name="app_url" value="<?= htmlspecialchars($_POST['app_url'] ?? 'https://' . $_SERVER['HTTP_HOST'] . '/new/public') ?>" 
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
                         </div>
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Base de Datos</label>
-                            <input type="text" name="db_database" value="<?= $_POST['db_database'] ?? '' ?>" 
+                            <input type="text" name="db_database" value="<?= htmlspecialchars($_POST['db_database'] ?? '') ?>" 
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md" 
                                    placeholder="usuario_gestor_cobros" required>
+                            <p class="text-xs text-gray-500 mt-1">Nombre completo de la base de datos (ej: dowgroupcol_gestor_cobros)</p>
                         </div>
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Usuario BD</label>
-                            <input type="text" name="db_username" value="<?= $_POST['db_username'] ?? '' ?>" 
+                            <input type="text" name="db_username" value="<?= htmlspecialchars($_POST['db_username'] ?? '') ?>" 
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
                         </div>
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña BD</label>
-                            <input type="password" name="db_password" value="<?= $_POST['db_password'] ?? '' ?>" 
+                            <input type="password" name="db_password" value="<?= htmlspecialchars($_POST['db_password'] ?? '') ?>" 
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
                         </div>
                         
