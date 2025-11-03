@@ -184,32 +184,87 @@ export const sendEmail = async ({
       return { success: false, error: 'Notification disabled' };
     }
 
-    // IMPORTANTE: Actualmente NO se envían emails reales
-    // Solo se registran en Firestore para historial
-    // Para envío real, necesitas implementar un backend (Firebase Functions o servidor Node.js)
-    
-    // TODO: Implementar envío real con nodemailer o similar
-    // const result = await sendEmailViaSMTP({ to, subject, html, text });
-    
-    // Registrar mensaje como SIMULADO (no enviado realmente)
-    const messageId = await registerMessage({
-      to,
-      toName,
-      subject,
-      body: text || html,
-      type,
-      recipientType,
-      status: 'Simulado', // Estado claro: no se envió realmente
-      simulated: true, // Flag para identificar que es simulado
-      errorMessage: '⚠️ Email no enviado realmente. Servicio SMTP no implementado. Solo registrado en historial.',
-      module,
-      event,
-      metadata
-    });
+    // Enviar email real usando el endpoint PHP
+    try {
+      const response = await fetch('/send-email.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to,
+          toName,
+          subject,
+          html,
+          text,
+          smtpConfig: {
+            smtpHost: emailConfig.smtpHost,
+            smtpPort: emailConfig.smtpPort,
+            smtpSecure: emailConfig.smtpSecure,
+            smtpUser: emailConfig.smtpUser,
+            smtpPassword: emailConfig.smtpPassword,
+            fromEmail: emailConfig.fromEmail,
+            fromName: emailConfig.fromName
+          }
+        })
+      });
 
-    console.warn('⚠️ Email SIMULADO - No se envió realmente. Configura backend para envío real.');
+      const result = await response.json();
 
-    return { success: true, messageId, simulated: true, warning: 'Email registrado pero no enviado. Necesitas backend para envío real.' };
+      if (result.success) {
+        // Registrar mensaje como enviado exitosamente
+        const messageId = await registerMessage({
+          to,
+          toName,
+          subject,
+          body: text || html,
+          type,
+          recipientType,
+          status: 'Enviado',
+          module,
+          event,
+          metadata
+        });
+
+        return { success: true, messageId, sent: true };
+      } else {
+        // Error al enviar
+        const messageId = await registerMessage({
+          to,
+          toName,
+          subject,
+          body: text || html,
+          type,
+          recipientType,
+          status: 'Fallido',
+          errorMessage: result.error || 'Error desconocido al enviar email',
+          module,
+          event,
+          metadata
+        });
+
+        return { success: false, error: result.error || 'Error al enviar email', messageId };
+      }
+    } catch (fetchError) {
+      // Error de conexión o red
+      console.error('Error al llamar a send-email.php:', fetchError);
+      
+      const messageId = await registerMessage({
+        to,
+        toName,
+        subject,
+        body: text || html,
+        type,
+        recipientType,
+        status: 'Fallido',
+        errorMessage: `Error de conexión: ${fetchError.message}`,
+        module,
+        event,
+        metadata
+      });
+
+      return { success: false, error: `Error de conexión: ${fetchError.message}`, messageId };
+    }
     
   } catch (error) {
     console.error('Error sending email:', error);
@@ -269,26 +324,174 @@ export const testEmailConfig = async (testEmail) => {
       return { success: false, error: 'Configuración SMTP incompleta. Verifica todos los campos.' };
     }
 
-    const testSubject = 'Prueba de Configuración - Gestor de Cobros';
+    const testSubject = '✅ Prueba de Configuración - Gestor de Cobros';
+    const testDate = new Date().toLocaleString('es-ES', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    });
+    
     const testHtml = `
-      <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <h2 style="color: #2563eb;">Prueba de Configuración de Email</h2>
-        <p>Este es un email de prueba para verificar la configuración SMTP.</p>
-        <p><strong>Configuración:</strong></p>
-        <ul>
-          <li>Servidor: ${emailConfig.smtpHost}</li>
-          <li>Puerto: ${emailConfig.smtpPort}</li>
-          <li>Desde: ${emailConfig.fromEmail}</li>
-        </ul>
-        <p style="color: #059669; margin-top: 20px;">
-          Si recibes este email, la configuración está funcionando correctamente.
-        </p>
-        <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
-          Enviado desde Gestor de Cobros - ${new Date().toLocaleString('es-ES')}
-        </p>
-      </div>
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb; }
+          .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          .success-badge { display: inline-block; background-color: #10b981; color: white; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; margin-bottom: 20px; }
+          .info-box { background-color: #eff6ff; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0; border-radius: 4px; }
+          .config-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          .config-table td { padding: 10px; border-bottom: 1px solid #e5e7eb; }
+          .config-table td:first-child { font-weight: bold; color: #374151; width: 40%; }
+          .config-table td:last-child { color: #6b7280; font-family: monospace; }
+          .footer { text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
+          .highlight { background-color: #fef3c7; padding: 2px 6px; border-radius: 3px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0; font-size: 28px;">📧 Prueba de Configuración</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Gestor de Cobros - Sistema de Email</p>
+          </div>
+          
+          <div class="content">
+            <div class="success-badge">✅ Configuración Exitosa</div>
+            
+            <h2 style="color: #1f2937; margin-top: 0;">¡Email de Prueba Enviado Correctamente!</h2>
+            
+            <p>Este es un email de prueba para verificar que tu configuración SMTP está funcionando correctamente.</p>
+            
+            <div class="info-box">
+              <strong>📌 Información Importante:</strong><br>
+              Si recibiste este email, significa que tu servidor SMTP está configurado y funcionando perfectamente.
+              Los emails del sistema ahora se enviarán realmente a tus clientes y administradores.
+            </div>
+            
+            <h3 style="color: #374151; margin-top: 30px;">🔧 Detalles de Configuración SMTP</h3>
+            
+            <table class="config-table">
+              <tr>
+                <td>Servidor SMTP:</td>
+                <td><span class="highlight">${emailConfig.smtpHost || 'No configurado'}</span></td>
+              </tr>
+              <tr>
+                <td>Puerto:</td>
+                <td><span class="highlight">${emailConfig.smtpPort || 'No configurado'}</span></td>
+              </tr>
+              <tr>
+                <td>Seguridad:</td>
+                <td><span class="highlight">${emailConfig.smtpSecure ? 'SSL/TLS ✓' : 'No seguro'}</span></td>
+              </tr>
+              <tr>
+                <td>Usuario SMTP:</td>
+                <td><span class="highlight">${emailConfig.smtpUser || 'No configurado'}</span></td>
+              </tr>
+              <tr>
+                <td>Email Remitente:</td>
+                <td><span class="highlight">${emailConfig.fromEmail || 'No configurado'}</span></td>
+              </tr>
+              <tr>
+                <td>Nombre Remitente:</td>
+                <td><span class="highlight">${emailConfig.fromName || 'No configurado'}</span></td>
+              </tr>
+            </table>
+            
+            <h3 style="color: #374151; margin-top: 30px;">📊 Información del Envío</h3>
+            
+            <table class="config-table">
+              <tr>
+                <td>Destinatario:</td>
+                <td><span class="highlight">${testEmail}</span></td>
+              </tr>
+              <tr>
+                <td>Fecha y Hora:</td>
+                <td>${testDate}</td>
+              </tr>
+              <tr>
+                <td>Estado:</td>
+                <td><strong style="color: #10b981;">✓ Enviado Exitosamente</strong></td>
+              </tr>
+            </table>
+            
+            <div class="info-box" style="background-color: #f0fdf4; border-left-color: #10b981; margin-top: 30px;">
+              <strong>✨ Próximos Pasos:</strong><br>
+              <ul style="margin: 10px 0 0 20px; padding-left: 0;">
+                <li>Verifica que este email llegó correctamente (revisa también spam)</li>
+                <li>Los emails del sistema ahora se enviarán automáticamente</li>
+                <li>Puedes verificar el historial de mensajes en el panel de administración</li>
+                <li>Si necesitas cambiar la configuración, ve a <strong>Mensajes → Configuración de Email</strong></li>
+              </ul>
+            </div>
+            
+            <div class="footer">
+              <p style="margin: 0;">
+                <strong>Gestor de Cobros</strong><br>
+                Sistema de Gestión de Servicios y Pagos<br>
+                ${new Date().getFullYear()} © Todos los derechos reservados
+              </p>
+              <p style="margin: 10px 0 0 0; font-size: 11px; color: #9ca3af;">
+                Este es un email automático del sistema. Por favor, no respondas a este mensaje.
+              </p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
     `;
-    const testText = 'Prueba de Configuración de Email\n\nEste es un email de prueba para verificar la configuración SMTP.\n\nSi recibes este email, la configuración está funcionando correctamente.';
+    
+    const testText = `
+═══════════════════════════════════════════════════════
+  PRUEBA DE CONFIGURACIÓN - GESTOR DE COBROS
+═══════════════════════════════════════════════════════
+
+¡Email de Prueba Enviado Correctamente!
+
+Este es un email de prueba para verificar que tu configuración SMTP está funcionando correctamente.
+
+📌 INFORMACIÓN IMPORTANTE:
+───────────────────────────────────────────────────────
+Si recibiste este email, significa que tu servidor SMTP está configurado y funcionando perfectamente. Los emails del sistema ahora se enviarán realmente a tus clientes y administradores.
+
+🔧 DETALLES DE CONFIGURACIÓN SMTP:
+───────────────────────────────────────────────────────
+Servidor SMTP: ${emailConfig.smtpHost || 'No configurado'}
+Puerto: ${emailConfig.smtpPort || 'No configurado'}
+Seguridad: ${emailConfig.smtpSecure ? 'SSL/TLS ✓' : 'No seguro'}
+Usuario SMTP: ${emailConfig.smtpUser || 'No configurado'}
+Email Remitente: ${emailConfig.fromEmail || 'No configurado'}
+Nombre Remitente: ${emailConfig.fromName || 'No configurado'}
+
+📊 INFORMACIÓN DEL ENVÍO:
+───────────────────────────────────────────────────────
+Destinatario: ${testEmail}
+Fecha y Hora: ${testDate}
+Estado: ✓ Enviado Exitosamente
+
+✨ PRÓXIMOS PASOS:
+───────────────────────────────────────────────────────
+• Verifica que este email llegó correctamente (revisa también spam)
+• Los emails del sistema ahora se enviarán automáticamente
+• Puedes verificar el historial de mensajes en el panel de administración
+• Si necesitas cambiar la configuración, ve a Mensajes → Configuración de Email
+
+───────────────────────────────────────────────────────
+Gestor de Cobros
+Sistema de Gestión de Servicios y Pagos
+${new Date().getFullYear()} © Todos los derechos reservados
+
+Este es un email automático del sistema. Por favor, no respondas a este mensaje.
+═══════════════════════════════════════════════════════
+    `;
 
     // Enviar email de prueba
     const result = await sendEmail({

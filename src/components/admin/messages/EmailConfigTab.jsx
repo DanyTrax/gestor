@@ -90,10 +90,10 @@ function EmailConfigTab({ isDemo }) {
       const result = await testEmailConfig(testEmail);
       
       if (result.success) {
-        if (result.simulated) {
-          addNotification(`⚠️ Email de prueba registrado (NO enviado realmente). Ve al historial de mensajes para verlo.`, 'warning');
+        if (result.sent) {
+          addNotification(`✅ Email de prueba enviado exitosamente a ${testEmail}. Revisa tu bandeja de entrada (y spam).`, 'success');
         } else {
-          addNotification(`Email de prueba enviado a ${testEmail}. Revisa tu bandeja de entrada.`, 'success');
+          addNotification(`⚠️ Email de prueba registrado en historial. Verifica la configuración SMTP si no se envió.`, 'warning');
         }
       } else {
         addNotification(`Error: ${result.error}`, 'error');
@@ -242,16 +242,16 @@ function EmailConfigTab({ isDemo }) {
       {/* Testeador de Email */}
       <div>
         <h3 className="text-xl font-bold mb-4">Probar Configuración</h3>
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
-          <p className="text-sm font-medium text-orange-800 mb-2">⚠️ Importante:</p>
-          <p className="text-sm text-orange-700">
-            Actualmente el sistema <strong>NO envía emails reales</strong>. Solo se registran en el historial.
-            Para envío real necesitas implementar un backend con SMTP (Firebase Functions o servidor Node.js).
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <p className="text-sm font-medium text-green-800 mb-2">✅ Emails Reales Activados:</p>
+          <p className="text-sm text-green-700">
+            Los emails se están enviando realmente usando el servidor SMTP configurado.
+            El email de prueba se enviará a la dirección que especifiques.
           </p>
         </div>
         <div className="bg-white p-6 rounded-lg shadow-md">
           <p className="text-sm text-gray-600 mb-4">
-            El email de prueba se registrará en el historial con estado "Simulado" para verificar la configuración.
+            El email de prueba se enviará realmente usando tu configuración SMTP. Verifica tu bandeja de entrada.
           </p>
           <div className="flex gap-4">
             <input
@@ -284,12 +284,29 @@ function EmailConfigTab({ isDemo }) {
       {/* Información de ayuda */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h4 className="font-semibold text-blue-800 mb-2">📧 Configuración de SMTP</h4>
-        <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-          <li><strong>Gmail:</strong> smtp.gmail.com:587, usa "Contraseña de aplicación"</li>
-          <li><strong>Outlook:</strong> smtp-mail.outlook.com:587</li>
-          <li><strong>Yahoo:</strong> smtp.mail.yahoo.com:587</li>
-          <li><strong>Servidor propio:</strong> Consulta con tu proveedor de hosting</li>
-        </ul>
+        
+        <div className="mb-4">
+          <h5 className="font-semibold text-blue-800 mb-2">✅ Usar cPanel (Recomendado si tienes hosting con cPanel)</h5>
+          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside mb-2">
+            <li><strong>Servidor SMTP:</strong> <code>mail.tu-dominio.com</code> o <code>smtp.tu-dominio.com</code></li>
+            <li><strong>Puerto:</strong> <code>587</code> (TLS) o <code>465</code> (SSL) - Marca "Usar conexión segura"</li>
+            <li><strong>Usuario:</strong> Email completo (ej: <code>noreply@tu-dominio.com</code>)</li>
+            <li><strong>Contraseña:</strong> La contraseña del email creado en cPanel</li>
+            <li><strong>Email Remitente:</strong> El mismo email (ej: <code>noreply@tu-dominio.com</code>)</li>
+          </ul>
+          <p className="text-xs text-blue-600 mt-2">
+            💡 <strong>Ventaja:</strong> No necesitas servicios externos, emails ilimitados desde tu propio dominio.
+          </p>
+        </div>
+
+        <div className="border-t border-blue-300 pt-3 mt-3">
+          <h5 className="font-semibold text-blue-800 mb-2">Otros Servicios:</h5>
+          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+            <li><strong>Gmail:</strong> smtp.gmail.com:587, usa "Contraseña de aplicación"</li>
+            <li><strong>Outlook:</strong> smtp-mail.outlook.com:587</li>
+            <li><strong>Yahoo:</strong> smtp.mail.yahoo.com:587</li>
+          </ul>
+        </div>
       </div>
     </div>
   );

@@ -238,20 +238,17 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
         </div>
       </div>
 
-      {/* Aviso importante sobre emails simulados */}
-      <div className="bg-orange-50 border-l-4 border-orange-400 p-4 mb-6 rounded">
+      {/* Información sobre emails */}
+      <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded">
         <div className="flex items-start">
           <div className="flex-shrink-0">
-            <span className="text-orange-400 text-2xl">⚠️</span>
+            <span className="text-blue-400 text-2xl">📧</span>
           </div>
           <div className="ml-3">
-            <h4 className="text-sm font-medium text-orange-800">Emails No Enviados Realmente</h4>
-            <p className="text-sm text-orange-700 mt-1">
-              Los emails con estado <span className="font-semibold">"Simulado"</span> o badge <span className="font-semibold">"⚠️ Solo Registrado"</span> 
-              <strong> NO se enviaron realmente</strong>. Solo se registraron en el historial para auditoría.
-            </p>
-            <p className="text-xs text-orange-600 mt-2">
-              Para enviar emails reales, necesitas implementar un backend con SMTP. Ver documentación en <code>MODULO-MENSAJERIA.md</code>
+            <h4 className="text-sm font-medium text-blue-800">Emails Reales Activados</h4>
+            <p className="text-sm text-blue-700 mt-1">
+              Los emails se están enviando realmente usando el servidor SMTP configurado.
+              El historial muestra el estado de cada envío: <span className="font-semibold">"Enviado"</span>, <span className="font-semibold">"Fallido"</span> o <span className="font-semibold">"Cancelado"</span>.
             </p>
           </div>
         </div>
@@ -372,9 +369,9 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                     <div className="ml-2 text-gray-400">
                       {getStatusIcon(message.status)}
                     </div>
-                    {message.simulated && (
-                      <span className="ml-2 px-2 py-1 text-xs bg-orange-200 text-orange-800 rounded-full" title="Este email NO se envió realmente, solo se registró en el historial">
-                        ⚠️ Solo Registrado
+                    {message.status === 'Simulado' && (
+                      <span className="ml-2 px-2 py-1 text-xs bg-orange-200 text-orange-800 rounded-full" title="Email histórico - antes de implementar envío real">
+                        ⚠️ Histórico
                       </span>
                     )}
                   </div>
@@ -500,12 +497,19 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                 </div>
               </div>
 
-              {selectedMessage.simulated && (
+              {selectedMessage.status === 'Simulado' && (
                 <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
-                  <label className="block text-sm font-medium text-orange-700 mb-1">⚠️ Email Simulado</label>
+                  <label className="block text-sm font-medium text-orange-700 mb-1">⚠️ Email Simulado (Histórico)</label>
                   <div className="text-sm text-orange-600">
-                    Este email NO se envió realmente. Solo se registró en el historial del sistema.
-                    Para enviar emails reales, necesitas configurar un backend con SMTP (Firebase Functions o servidor Node.js).
+                    Este email fue registrado antes de implementar el envío real. Los nuevos emails se envían realmente.
+                  </div>
+                </div>
+              )}
+              {selectedMessage.status === 'Enviado' && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                  <label className="block text-sm font-medium text-green-700 mb-1">✅ Email Enviado</label>
+                  <div className="text-sm text-green-600">
+                    Este email fue enviado exitosamente usando el servidor SMTP configurado.
                   </div>
                 </div>
               )}

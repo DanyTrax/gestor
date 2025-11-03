@@ -20,13 +20,17 @@ RUN npm run build
 # Stage 2: Production - PHP + Apache
 FROM php:8.2-apache
 
-# Instalar extensiones PHP necesarias
+# Instalar extensiones PHP necesarias y Composer
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
+    zip \
+    unzip \
+    git \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -64,8 +68,13 @@ RUN echo '<VirtualHost *:80>\n\
 # Copiar archivos construidos desde builder
 COPY --from=builder /app/dist /var/www/html
 
-# Copiar upload.php
+# Copiar upload.php y send-email.php
 COPY upload.php /var/www/html/
+COPY send-email.php /var/www/html/
+
+# Copiar composer.json e instalar PHPMailer
+COPY composer.json /var/www/html/
+RUN cd /var/www/html && composer install --no-dev --optimize-autoloader
 
 # Copiar .htaccess si existe (para SPA routing)
 # El .htaccess se copia desde dist si existe, o se crea en Apache config
