@@ -105,17 +105,25 @@ function EmailConfigTab({ isDemo }) {
       } else {
         // Error detallado con sugerencias
         const errorMsg = result.error || 'Error desconocido';
+        const errorDetails = result.details || '';
         let suggestion = '';
         
         if (errorMsg.includes('send-email.php') || errorMsg.includes('404') || errorMsg.includes('no se encontró')) {
           suggestion = ' Verifica que send-email.php esté en el servidor y que PHPMailer esté instalado. Consulta VERIFICAR-PHP.md';
         } else if (errorMsg.includes('PHPMailer') || errorMsg.includes('Class')) {
           suggestion = ' PHPMailer no está instalado. Ejecuta: composer require phpmailer/phpmailer';
+        } else if (errorMsg.includes('Could not authenticate') || errorMsg.includes('authentication')) {
+          suggestion = errorDetails || ' Verifica: 1) Usuario SMTP debe ser el email completo (ej: noreply@dominio.com), 2) Contraseña correcta, 3) Puerto y conexión segura (587/TLS o 465/SSL), 4) Servidor SMTP correcto';
         } else if (errorMsg.includes('SMTP') || errorMsg.includes('connect')) {
-          suggestion = ' Verifica la configuración SMTP (servidor, puerto, usuario, contraseña)';
+          suggestion = errorDetails || ' Verifica la configuración SMTP (servidor, puerto, usuario, contraseña)';
         }
         
-        addNotification(`❌ Error al enviar email: ${errorMsg}${suggestion}`, 'error');
+        // Mensaje completo con detalles
+        const fullMessage = errorDetails 
+          ? `❌ Error al enviar email: ${errorMsg}\n\n${errorDetails}`
+          : `❌ Error al enviar email: ${errorMsg}${suggestion}`;
+        
+        addNotification(fullMessage, 'error');
       }
     } catch (error) {
       console.error('Error testing email:', error);

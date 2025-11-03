@@ -296,7 +296,13 @@ export const sendEmail = async ({
 
         return { success: true, messageId, sent: true };
       } else {
-        // Error al enviar
+        // Error al enviar - incluir detalles adicionales si están disponibles
+        const errorMessage = result.error || 'Error desconocido al enviar email';
+        const errorDetails = result.details || '';
+        const fullErrorMessage = errorDetails 
+          ? `${errorMessage}\n\n${errorDetails}` 
+          : errorMessage;
+        
         const messageId = await registerMessage({
           to,
           toName,
@@ -305,13 +311,23 @@ export const sendEmail = async ({
           type,
           recipientType,
           status: 'Fallido',
-          errorMessage: result.error || 'Error desconocido al enviar email',
+          errorMessage: fullErrorMessage,
           module,
           event,
           metadata
         });
 
-        return { success: false, error: result.error || 'Error al enviar email', messageId };
+        return { 
+          success: false, 
+          error: errorMessage,
+          details: errorDetails,
+          smtpInfo: result.smtp_host ? {
+            host: result.smtp_host,
+            port: result.smtp_port,
+            user: result.smtp_user
+          } : null,
+          messageId 
+        };
       }
     } catch (fetchError) {
       // Error de conexión o red

@@ -86,14 +86,34 @@ La configuración típica de cPanel es:
 - Si no funciona, prueba `smtp.tu-dominio.com:587`
 - Si sigue fallando, contacta a tu proveedor de hosting
 
-### Error: "Authentication failed"
+### Error: "Could not authenticate" o "Authentication failed"
 
-**Causa:** Usuario o contraseña incorrectos
+**Causa:** Usuario o contraseña incorrectos, o configuración SMTP incorrecta
 
-**Solución:**
-- Verifica que el usuario sea el email completo: `noreply@tu-dominio.com`
-- Asegúrate de usar la contraseña correcta
-- Prueba cambiando la contraseña en cPanel
+**Solución paso a paso:**
+
+1. **Verifica el usuario SMTP:**
+   - Debe ser el email completo: `noreply@dowgroupcol.com` (no solo `noreply`)
+   - Debe coincidir exactamente con la cuenta creada en cPanel
+
+2. **Verifica la contraseña:**
+   - Debe ser la contraseña que configuraste al crear la cuenta en cPanel
+   - Si no la recuerdas, cambia la contraseña en cPanel → Email Accounts
+   - No debe tener espacios al inicio o final
+
+3. **Verifica el servidor SMTP:**
+   - Para cPanel, generalmente es: `mail.tu-dominio.com` o `smtp.tu-dominio.com`
+   - Puedes verificarlo en cPanel → Email Accounts → "Configurar Cliente de Correo"
+
+4. **Verifica puerto y conexión segura:**
+   - **Puerto 587** con **TLS** (más común) - marca "Usar conexión segura"
+   - **Puerto 465** con **SSL** - marca "Usar conexión segura"
+   - El puerto y la conexión segura deben coincidir
+
+5. **Si aún no funciona:**
+   - Prueba cambiar la contraseña de la cuenta en cPanel
+   - Verifica que la cuenta de email no esté suspendida o deshabilitada
+   - Contacta a tu proveedor de hosting para verificar restricciones SMTP
 
 ### Error: "Connection timeout"
 
