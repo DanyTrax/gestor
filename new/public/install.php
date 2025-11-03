@@ -434,7 +434,18 @@ exit</code></pre>
                         <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
                             <strong>⚠️ IMPORTANTE:</strong> Elimina este archivo (install.php) por seguridad.
                         </div>
-                        <a href="/login" class="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                        <?php
+                        // Construir URL correcta
+                        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                        $host = $_SERVER['HTTP_HOST'];
+                        $basePath = dirname($_SERVER['SCRIPT_NAME']); // /new/public
+                        $loginUrl = $protocol . '://' . $host . $basePath . '/login';
+                        ?>
+                        <div class="mb-4">
+                            <p class="text-sm text-gray-600 mb-2">URL de acceso:</p>
+                            <code class="bg-gray-100 px-3 py-1 rounded text-sm"><?= htmlspecialchars($loginUrl) ?></code>
+                        </div>
+                        <a href="<?= htmlspecialchars($loginUrl) ?>" class="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
                             Ir al Login
                         </a>
                     </div>
