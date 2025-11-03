@@ -4,8 +4,11 @@ import { collection, onSnapshot, query, orderBy, where, doc, updateDoc } from 'f
 import { db, appId } from '../../../config/firebase';
 import { MessagesIcon, SearchIcon, FilterIcon, EyeIcon, CheckIcon, XIcon, ClockIcon } from '../../icons';
 import ActionDropdown from '../../common/ActionDropdown';
+import EmailConfigTab from './EmailConfigTab';
+import NotificationSettingsTab from './NotificationSettingsTab';
 
 function AdminMessagesDashboard({ isDemo, userRole }) {
+  const [activeTab, setActiveTab] = useState('history');
   const { addNotification } = useNotification();
   const [messages, setMessages] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -222,13 +225,11 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
     );
   }
 
-  return (
-    <div className="p-4 sm:p-6 lg:p-8">
+  // Componente de Historial de Mensajes
+  const MessagesHistoryTab = () => (
+    <>
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
-          <MessagesIcon />
-          Historial de Mensajes
-        </h2>
+        <h3 className="text-xl font-bold text-gray-900">Historial de Mensajes</h3>
         <div className="text-sm text-gray-500">
           {filteredMessages.length} mensaje{filteredMessages.length !== 1 ? 's' : ''} encontrado{filteredMessages.length !== 1 ? 's' : ''}
         </div>
@@ -302,7 +303,7 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {['Tipo', 'Destinatario', 'Asunto', 'Estado', 'Canal', 'Enviado', 'Entregado', 'Leído', 'Acciones'].map(header => (
+              {['Tipo', 'Módulo', 'Destinatario', 'Asunto', 'Estado', 'Enviado', 'Entregado', 'Leído', 'Acciones'].map(header => (
                 <th key={header} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   {header}
                 </th>
@@ -323,8 +324,18 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{message.recipientName}</div>
-                  <div className="text-sm text-gray-500">{message.recipientEmail}</div>
+                  <div className="text-sm font-medium text-gray-900 capitalize">
+                    {message.module || 'Sistema'}
+                  </div>
+                  {message.event && (
+                    <div className="text-xs text-gray-500 capitalize">
+                      {message.event.replace(/([A-Z])/g, ' $1').trim()}
+                    </div>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-gray-900">{message.recipientName || 'N/A'}</div>
+                  <div className="text-sm text-gray-500">{message.recipientEmail || message.to || 'N/A'}</div>
                 </td>
                 <td className="px-6 py-4">
                   <div className="text-sm text-gray-900 max-w-xs truncate" title={message.subject}>
@@ -340,9 +351,6 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                       {getStatusIcon(message.status)}
                     </div>
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {message.channel || 'Email'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {formatDate(message.sentAt)}
@@ -489,6 +497,58 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
           </div>
         </div>
       )}
+    </>
+  );
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mb-6">
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 mb-4">
+          <MessagesIcon />
+          Mensajería y Notificaciones
+        </h2>
+        
+        {/* Pestañas */}
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'history'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              📋 Historial de Mensajes
+            </button>
+            <button
+              onClick={() => setActiveTab('email')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'email'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              ⚙️ Configuración de Email
+            </button>
+            <button
+              onClick={() => setActiveTab('notifications')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'notifications'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              🔔 Notificaciones por Módulo
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Contenido de pestañas */}
+      {activeTab === 'history' && <MessagesHistoryTab />}
+      {activeTab === 'email' && <EmailConfigTab isDemo={isDemo} />}
+      {activeTab === 'notifications' && <NotificationSettingsTab isDemo={isDemo} />}
     </div>
   );
 }
