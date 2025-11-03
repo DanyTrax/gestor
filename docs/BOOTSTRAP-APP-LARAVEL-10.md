@@ -1,3 +1,23 @@
+# ✅ bootstrap/app.php para Laravel 10
+
+## ❌ Error
+
+```
+Method Illuminate\Foundation\Application::configure does not exist
+```
+
+## 🔍 Causa
+
+El archivo `bootstrap/app.php` actual usa la sintaxis de Laravel 11, pero estamos usando Laravel 10.
+
+## ✅ Solución
+
+Para Laravel 10, el archivo `bootstrap/app.php` debe ser diferente. Ejecuta esto en el servidor:
+
+```bash
+cd ~/clients.dowgroupcol.com/new
+
+cat > bootstrap/app.php << 'EOF'
 <?php
 
 $app = new Illuminate\Foundation\Application(
@@ -42,4 +62,13 @@ $app->singleton(
 */
 
 return $app;
+EOF
+
+chmod 644 bootstrap/app.php
+php -l bootstrap/app.php
+```
+
+## ⚠️ Problema Adicional
+
+Si no existen `App\Http\Kernel`, `App\Console\Kernel` o `App\Exceptions\Handler`, necesitamos crearlos también.
 
