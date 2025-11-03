@@ -5,6 +5,7 @@ import { auth, db, appId } from './config/firebase';
 import { diagnosticFirebaseStructure, findOldestUser } from './utils/firebaseDiagnostic';
 import { checkUsersInAuth } from './utils/authCheck';
 import { useNotification, NotificationProvider } from './contexts/NotificationContext';
+import { useInactivityTimeout } from './hooks/useInactivityTimeout';
 import { LogoutIcon } from './components/icons';
 import AdminDashboard from './components/dashboard/AdminDashboard';
 import ClientDashboard from './components/dashboard/ClientDashboard';
@@ -198,6 +199,23 @@ function AppContent() {
       signOut(auth);
     }
   };
+
+  // Cerrar sesión por inactividad
+  // Obtener el timeout desde companySettings (default: 10 minutos)
+  const inactivityTimeoutMinutes = companySettings?.inactivityTimeoutMinutes || 10;
+  const isUserLoggedIn = !!(user && !isDemoMode);
+  
+  useInactivityTimeout(
+    () => {
+      // Mostrar notificación antes de cerrar sesión
+      addNotification(`Sesión cerrada por inactividad (${inactivityTimeoutMinutes} minutos sin actividad)`, 'warning');
+      setTimeout(() => {
+        handleLogout();
+      }, 1000); // Esperar 1 segundo para que se vea la notificación
+    },
+    inactivityTimeoutMinutes,
+    isUserLoggedIn // Solo activo cuando hay usuario autenticado (no en demo)
+  );
 
   const handleTestModeLogin = (user, role) => {
     setUser(user);

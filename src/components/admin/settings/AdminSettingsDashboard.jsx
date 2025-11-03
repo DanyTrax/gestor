@@ -94,6 +94,39 @@ function AdminSettingsDashboard({ isDemo, setIsDemoMode, onLogout }) {
         </div>
          
         <div>
+          <h3 className="text-xl font-bold mb-4">Seguridad</h3>
+          <div className="p-4 bg-gray-50 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="font-medium text-gray-800">Tiempo de Inactividad (minutos)</p>
+                <p className="text-sm text-gray-500">Tiempo máximo de inactividad antes de cerrar sesión automáticamente. Mínimo: 1 minuto, Máximo: 120 minutos.</p>
+              </div>
+              <div className="ml-4">
+                <input
+                  type="number"
+                  name="inactivityTimeoutMinutes"
+                  value={settings.inactivityTimeoutMinutes || 10}
+                  onChange={handleChange}
+                  min="1"
+                  max="120"
+                  className="w-24 p-2 border rounded-md text-center"
+                  placeholder="10"
+                />
+                <span className="ml-2 text-gray-600">min</span>
+              </div>
+            </div>
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded">
+              <p className="text-sm text-blue-800">
+                <strong>Actual:</strong> {settings.inactivityTimeoutMinutes || 10} minutos de inactividad
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                La sesión se cerrará automáticamente si no hay actividad del usuario (movimiento del mouse, teclado, clics, scroll).
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div>
            <h3 className="text-xl font-bold mb-4">Modo de Operación</h3>
           <div className="p-4 bg-gray-50 rounded-lg flex items-center justify-between">
              <div>
