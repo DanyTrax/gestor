@@ -38,10 +38,33 @@ if (file_exists('../.env')) {
     echo "❌ .env NO existe<br>";
 }
 
-// 4. Intentar cargar Laravel
-echo "<h2>4. Cargar Laravel</h2>";
+// 4. Verificar vendor/
+echo "<h2>4. Verificar Dependencias</h2>";
+$vendorPath = __DIR__ . '/../vendor';
+if (!is_dir($vendorPath)) {
+    echo "❌ <strong>ERROR CRÍTICO:</strong> Directorio vendor/ no existe<br>";
+    echo "🔧 <strong>Solución:</strong> Instalar dependencias de Composer<br>";
+    echo "<pre class='bg-yellow-100 p-3 rounded mt-2'>cd ~/clients.dowgroupcol.com/new
+composer install --no-dev --optimize-autoloader</pre>";
+    echo "<p>Si no tienes Composer, instálalo primero o ejecuta desde SSH.</p>";
+    exit;
+} else {
+    echo "✅ Directorio vendor/ existe<br>";
+}
+
+// Verificar autoload.php
+if (!file_exists($vendorPath . '/autoload.php')) {
+    echo "❌ autoload.php no existe en vendor/<br>";
+    echo "🔧 Ejecutar: composer install<br>";
+    exit;
+} else {
+    echo "✅ autoload.php existe<br>";
+}
+
+// 5. Intentar cargar Laravel
+echo "<h2>5. Cargar Laravel</h2>";
 try {
-    require __DIR__ . '/../vendor/autoload.php';
+    require $vendorPath . '/autoload.php';
     echo "✅ Autoload cargado<br>";
     
     $app = require_once __DIR__ . '/../bootstrap/app.php';
@@ -68,8 +91,8 @@ try {
     echo "Stack trace: <pre>" . $e->getTraceAsString() . "</pre>";
 }
 
-// 5. Verificar logs
-echo "<h2>5. Últimos errores en log</h2>";
+// 6. Verificar logs
+echo "<h2>6. Últimos errores en log</h2>";
 $logFile = '../storage/logs/laravel.log';
 if (file_exists($logFile)) {
     $lines = file($logFile);
@@ -79,8 +102,8 @@ if (file_exists($logFile)) {
     echo "❌ Archivo de log no existe<br>";
 }
 
-// 6. Verificar rutas
-echo "<h2>6. Verificar rutas</h2>";
+// 7. Verificar rutas
+echo "<h2>7. Verificar rutas</h2>";
 try {
     $app = require_once __DIR__ . '/../bootstrap/app.php';
     $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
