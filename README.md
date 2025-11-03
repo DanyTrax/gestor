@@ -1,106 +1,81 @@
-# Gestor de Cobros - Sistema Modular
+# Gestor de Cobros
 
-Sistema de gestión de cobros y pagos refactorizado con una arquitectura modular para mejor mantenibilidad y escalabilidad.
+Sistema de gestión de cobros y pagos con dos versiones:
 
-## Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
 ```
-src/
-├── components/
-│   ├── admin/
-│   │   ├── services/
-│   │   │   ├── AdminServicesDashboard.jsx
-│   │   │   ├── ServiceModal.jsx
-│   │   │   └── ManualReminderModal.jsx
-│   │   ├── users/
-│   │   │   ├── AdminUsersDashboard.jsx
-│   │   │   ├── UserModal.jsx
-│   │   │   └── CreateUserModal.jsx
-│   │   └── settings/
-│   │       └── AdminSettingsDashboard.jsx
-│   ├── auth/
-│   │   ├── AuthPage.jsx
-│   │   └── PasswordChangeModal.jsx
-│   ├── common/
-│   │   └── ActionDropdown.jsx
-│   ├── dashboard/
-│   │   ├── AdminDashboard.jsx
-│   │   └── ClientDashboard.jsx
-│   └── icons/
-│       └── index.jsx
-├── config/
-│   └── firebase.js
-├── contexts/
-│   └── NotificationContext.jsx
-├── App.jsx
-├── main.jsx
-└── index.css
+gestor-cobros/
+├── current/          ← Sistema ACTUAL (React + Firebase)
+├── new/              ← Sistema NUEVO (Laravel + SQL)
+├── shared/           ← Recursos compartidos (uploads, invoices)
+├── scripts/          ← Scripts de utilidad
+└── docs/             ← Documentación
 ```
 
-## Módulos Principales
+## 🚀 Sistema Actual (React + Firebase)
 
-### 1. Configuración (config/)
-- **firebase.js**: Configuración de Firebase y exportación de servicios
+**Ubicación:** `current/`
 
-### 2. Contextos (contexts/)
-- **NotificationContext.jsx**: Sistema de notificaciones global
+- React SPA con Vite
+- Firebase (Firestore + Auth)
+- PHP para emails y uploads
+- URL: `https://clients.dowgroupcol.com/`
 
-### 3. Componentes Comunes (components/common/)
-- **ActionDropdown.jsx**: Dropdown reutilizable para acciones
-
-### 4. Iconos (components/icons/)
-- **index.jsx**: Todos los iconos SVG del sistema
-
-### 5. Autenticación (components/auth/)
-- **AuthPage.jsx**: Página de login/registro
-- **PasswordChangeModal.jsx**: Modal para cambio de contraseña
-
-### 6. Dashboard de Administrador (components/admin/)
-- **services/**: Gestión de servicios
-- **users/**: Gestión de usuarios
-- **settings/**: Configuración de la empresa
-
-### 7. Dashboards (components/dashboard/)
-- **AdminDashboard.jsx**: Dashboard principal para administradores
-- **ClientDashboard.jsx**: Dashboard para clientes
-
-## Características
-
-- ✅ Arquitectura modular y escalable
-- ✅ Separación de responsabilidades
-- ✅ Componentes reutilizables
-- ✅ Context API para estado global
-- ✅ Configuración centralizada de Firebase
-- ✅ Sistema de notificaciones
-- ✅ Modo demo integrado
-- ✅ Responsive design con Tailwind CSS
-
-## Instalación
-
+### Instalación:
 ```bash
+cd current
 npm install
-npm run dev
+npm run build
 ```
 
-## Tecnologías
+## 🆕 Sistema Nuevo (Laravel + SQL)
 
-- React 18
-- Firebase (Auth + Firestore)
-- Tailwind CSS
-- Vite
+**Ubicación:** `new/`
 
-## Próximos Pasos
+- Laravel MVC (sin compilación)
+- API REST para móviles
+- MySQL/PostgreSQL
+- URL: `https://clients.dowgroupcol.com/new/` (durante desarrollo)
 
-- [ ] Implementar módulos de plantillas de mensajes
-- [ ] Completar módulo de historial de mensajes
-- [ ] Desarrollar sistema de tickets
-- [ ] Añadir tests unitarios
-- [ ] Implementar TypeScript
-- [ ] Añadir documentación de API
+### Instalación:
+```bash
+cd new
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+```
 
+## 📚 Documentación
 
+Toda la documentación está en el directorio `docs/`:
 
+- `ESTRUCTURA-PROYECTO.md` - Estructura de directorios
+- `MIGRACION-LARAVEL-COMPLETA.md` - Plan de migración completo
+- `LARAVEL-API-ARCHITECTURE.md` - Arquitectura MVC + API
+- `README-LARAVEL.md` - Guía de Laravel
 
+## 🔄 Recursos Compartidos
 
+El directorio `shared/` contiene:
+- `uploads/payments/` - Comprobantes de pago
+- `uploads/tickets/` - Adjuntos de tickets
+- `invoices/` - Facturas PDF generadas
 
+Ambos sistemas pueden acceder a estos recursos.
 
+## 📝 Notas
+
+- El sistema actual sigue funcionando normalmente
+- El sistema nuevo se desarrolla en paralelo
+- Ambos sistemas pueden coexistir durante la migración
+- Los datos se crearán desde cero en el sistema nuevo
+
+## 🚀 Próximos Pasos
+
+1. Ejecutar `./organize-structure.sh` para organizar archivos
+2. Instalar Laravel en `new/`
+3. Copiar archivos de Laravel a `new/`
+4. Configurar base de datos
+5. Crear vistas Blade según necesidad

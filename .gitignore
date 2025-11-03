@@ -1,1 +1,54 @@
-node_modules
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+current/dist/
+new/public/build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+current/.env
+new/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+current/logs/
+new/storage/logs/
+
+# Uploads (no subir archivos de usuarios)
+uploads/
+shared/uploads/*
+!shared/uploads/.gitkeep
+shared/invoices/*
+!shared/invoices/.gitkeep
+
+# Firebase
+firebase-credentials.json
+current/firebase-credentials.json
+
+# Laravel
+new/storage/
+new/bootstrap/cache/
+
+# Composer
+composer.phar
+
+# Node
+package-lock.json
+current/package-lock.json
