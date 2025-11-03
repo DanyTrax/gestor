@@ -103,7 +103,19 @@ function EmailConfigTab({ isDemo }) {
           addNotification(`✅ Email de prueba procesado. Revisa el historial de mensajes para ver el estado.`, 'info');
         }
       } else {
-        addNotification(`Error: ${result.error}`, 'error');
+        // Error detallado con sugerencias
+        const errorMsg = result.error || 'Error desconocido';
+        let suggestion = '';
+        
+        if (errorMsg.includes('send-email.php') || errorMsg.includes('404') || errorMsg.includes('no se encontró')) {
+          suggestion = ' Verifica que send-email.php esté en el servidor y que PHPMailer esté instalado. Consulta VERIFICAR-PHP.md';
+        } else if (errorMsg.includes('PHPMailer') || errorMsg.includes('Class')) {
+          suggestion = ' PHPMailer no está instalado. Ejecuta: composer require phpmailer/phpmailer';
+        } else if (errorMsg.includes('SMTP') || errorMsg.includes('connect')) {
+          suggestion = ' Verifica la configuración SMTP (servidor, puerto, usuario, contraseña)';
+        }
+        
+        addNotification(`❌ Error al enviar email: ${errorMsg}${suggestion}`, 'error');
       }
     } catch (error) {
       console.error('Error testing email:', error);
