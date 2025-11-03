@@ -36,17 +36,54 @@ Esto reconstruirá la imagen Docker con los nuevos cambios.
 
 ---
 
-## Opción 2: Desde Dockge
+## Opción 2: Desde Dockge - Botón "Actualizar"
 
-### Si tienes el botón "Actualizar":
+### ✅ Si el stack está conectado a Git:
 
+Si cuando creaste el stack usaste la opción **"Git Repository"**, el botón **"Actualizar"** hará:
+1. `git pull` automáticamente
+2. Reconstrucción de la imagen
+3. Reinicio del contenedor
+
+**Pasos:**
 1. Ve al stack `gestor` en Dockge
-2. Click en el botón **"Actualizar"** (icono de descarga)
-3. Esto debería hacer pull y reconstruir automáticamente
+2. Click en **"Actualizar"** (icono de descarga ⬇️)
+3. Dockge hará pull y reconstruirá automáticamente
 
-### Si el botón "Actualizar" no funciona o no está:
+### ❌ Si el stack está en Local Directory:
 
-Usa la **Opción 3** (Manual desde SSH) en su lugar
+Si usaste **"Local Directory"** (pegaste el docker-compose.yml directamente), el botón "Actualizar" **NO hará git pull**, solo reconstruirá con los archivos locales que ya tienes.
+
+**Solución:** Reconfigura el stack para usar Git (ver abajo) o usa la Opción 3 (Manual desde SSH).
+
+---
+
+## 🔄 Reconfigurar el Stack para usar Git (Recomendado)
+
+Si actualmente usas archivos locales y quieres que Dockge haga pull automático:
+
+### Método 1: Editar el Stack en Dockge
+
+1. En Dockge, ve al stack `gestor`
+2. Click en **"Editar"**
+3. Busca la sección de **"Source"** o **"Origen"**
+4. Cambia de **"Local Directory"** a **"Git Repository"**
+5. Configura:
+   - **Git Repository URL**: `https://github.com/DanyTrax/gestor.git`
+   - **Branch**: `main`
+   - **Stack File Path**: `docker-compose.yml`
+6. Guarda y redespliega
+
+### Método 2: Recrear el Stack desde Git
+
+1. Detén y elimina el stack actual (guarda tus datos primero)
+2. Crea un nuevo stack con:
+   - **Source Type**: `Git Repository`
+   - **Git URL**: `https://github.com/DanyTrax/gestor.git`
+   - **Branch**: `main`
+3. Configura el `docker-compose.yml` para usar rutas relativas
+
+**Nota:** Si usas Git, asegúrate de que el `docker-compose.yml` use `context: .` (ruta relativa) para que funcione correctamente.
 
 ---
 
