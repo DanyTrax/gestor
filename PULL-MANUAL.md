@@ -1,5 +1,19 @@
 # Actualización Manual en Dockge - Guía Rápida
 
+## ⚠️ IMPORTANTE: ¿Desde dónde hacer el pull?
+
+**NO desde el contenedor (`>_ Bash` en Dockge)** ❌
+- El contenedor solo tiene archivos compilados, no el código fuente
+- No tiene git instalado
+- Los cambios no se reflejarán porque el contenedor se reconstruye desde el servidor
+
+**SÍ desde el servidor (SSH)** ✅
+- Tienes acceso al código fuente completo
+- Puedes hacer git pull
+- Luego reconstruir el contenedor con los nuevos cambios
+
+---
+
 ## 📋 Pasos para Actualizar Manualmente
 
 Cuando hagas `git push` desde tu computadora, sigue estos pasos en el servidor:
@@ -187,6 +201,26 @@ docker-compose down
 docker-compose build --no-cache --pull
 docker-compose up -d
 ```
+
+---
+
+## 🚫 ¿Por qué NO desde el contenedor?
+
+Si intentas hacer `git pull` desde el botón `>_ Bash` del contenedor:
+
+```bash
+# ❌ Esto NO funcionará dentro del contenedor
+cd /var/www/html
+git pull origin main  # Error: not a git repository
+```
+
+**Razones:**
+1. El contenedor solo contiene los archivos compilados (`dist/`)
+2. No tiene el código fuente original
+3. No tiene git instalado
+4. El contenedor es solo el resultado del build, no el proyecto completo
+
+**Solución:** Siempre hacer pull desde el **servidor host** (donde está el código fuente), luego reconstruir el contenedor.
 
 ---
 
