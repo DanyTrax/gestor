@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  gestor-cobros:
+    build:
+      # IMPORTANTE: Ajusta esta ruta a donde clonaste el repo en el servidor
+      # Ejemplo: /data/stacks/gestor-cobros
+      context: .
+      dockerfile: Dockerfile
+    container_name: gestor-cobros
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      # Persistir uploads fuera del contenedor
+      # Ajusta la ruta si clonaste en otra ubicación
+      - ./uploads:/var/www/html/uploads
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+    labels:
+      # Labels para Dockge
+      - "com.uw-labs.dockge.stack-name=gestor-cobros"
+      - "com.uw-labs.dockge.stack-dir=/data/stacks/gestor-cobros"
+    networks:
+      - gestor-network
+
+networks:
+  gestor-network:
+    driver: bridge
+

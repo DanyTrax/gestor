@@ -4,15 +4,11 @@ vendor/
 
 # Build outputs
 dist/
-current/dist/
-new/public/build/
 
 # Environment files
 .env
 .env.local
 .env.*.local
-current/.env
-new/.env
 
 # IDE
 .vscode/
@@ -28,8 +24,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
-current/logs/
-new/storage/logs/
 
 # Uploads (no subir archivos de usuarios)
 uploads/
@@ -40,15 +34,3 @@ shared/invoices/*
 
 # Firebase
 firebase-credentials.json
-current/firebase-credentials.json
-
-# Laravel
-new/storage/
-new/bootstrap/cache/
-
-# Composer
-composer.phar
-
-# Node
-package-lock.json
-current/package-lock.json

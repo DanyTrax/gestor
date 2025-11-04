@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  gestor-cobros:
+    build:
+      context: https://github.com/DanyTrax/gestor.git#main
+      dockerfile: Dockerfile
+    container_name: gestor-cobros
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./uploads:/var/www/html/uploads
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+    networks:
+      - gestor-network
+
+networks:
+  gestor-network:
+    driver: bridge
+
