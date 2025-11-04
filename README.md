@@ -1,81 +1,91 @@
 # Gestor de Cobros
 
-Sistema de gestión de cobros y pagos con dos versiones:
+Sistema de gestión de cobros y pagos con React + Firebase.
+
+## 🚀 Tecnologías
+
+- **Frontend:** React 18 + Vite
+- **Backend:** Firebase (Firestore + Authentication)
+- **Estilos:** Tailwind CSS
+- **PDFs:** jsPDF
+- **Email:** PHP + PHPMailer
+- **Uploads:** PHP
 
 ## 📁 Estructura del Proyecto
 
 ```
 gestor-cobros/
-├── current/          ← Sistema ACTUAL (React + Firebase)
-├── new/              ← Sistema NUEVO (Laravel + SQL)
-├── shared/           ← Recursos compartidos (uploads, invoices)
-├── scripts/          ← Scripts de utilidad
-└── docs/             ← Documentación
+├── src/              ← Código fuente React
+├── dist/             ← Build compilado (producción)
+├── functions/        ← Firebase Functions
+├── uploads/          ← Archivos subidos
+├── send-email.php    ← Endpoint PHP para emails
+├── upload.php        ← Endpoint PHP para uploads
+├── firebase.json     ← Configuración Firebase
+└── package.json      ← Dependencias npm
 ```
 
-## 🚀 Sistema Actual (React + Firebase)
+## 🛠️ Instalación
 
-**Ubicación:** `current/`
+### Desarrollo Local
 
-- React SPA con Vite
-- Firebase (Firestore + Auth)
-- PHP para emails y uploads
-- URL: `https://clients.dowgroupcol.com/`
-
-### Instalación:
 ```bash
-cd current
+# Instalar dependencias
 npm install
+
+# Ejecutar en desarrollo
+npm run dev
+
+# Compilar para producción
 npm run build
 ```
 
-## 🆕 Sistema Nuevo (Laravel + SQL)
+### Producción
 
-**Ubicación:** `new/`
-
-- Laravel MVC (sin compilación)
-- API REST para móviles
-- MySQL/PostgreSQL
-- URL: `https://clients.dowgroupcol.com/new/` (durante desarrollo)
-
-### Instalación:
 ```bash
-cd new
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan migrate
+# Compilar
+npm run build
+
+# Los archivos compilados estarán en dist/
+# Configurar servidor web para servir dist/
 ```
+
+## 🔧 Configuración
+
+### Firebase
+
+Configura las credenciales en `src/config/firebase.js`
+
+### PHP (Emails y Uploads)
+
+- `send-email.php` - Configuración SMTP en el código
+- `upload.php` - Permisos de escritura en `uploads/`
 
 ## 📚 Documentación
 
-Toda la documentación está en el directorio `docs/`:
+La documentación está en el directorio `docs/`:
+- Configuración de Firebase
+- Configuración de SMTP
+- Guías de despliegue
+- etc.
 
-- `ESTRUCTURA-PROYECTO.md` - Estructura de directorios
-- `MIGRACION-LARAVEL-COMPLETA.md` - Plan de migración completo
-- `LARAVEL-API-ARCHITECTURE.md` - Arquitectura MVC + API
-- `README-LARAVEL.md` - Guía de Laravel
+## 🚀 Despliegue
 
-## 🔄 Recursos Compartidos
+### Docker
 
-El directorio `shared/` contiene:
-- `uploads/payments/` - Comprobantes de pago
-- `uploads/tickets/` - Adjuntos de tickets
-- `invoices/` - Facturas PDF generadas
+```bash
+docker-compose up -d
+```
 
-Ambos sistemas pueden acceder a estos recursos.
+### cPanel
+
+1. Subir archivos a servidor
+2. Ejecutar `npm run build`
+3. Configurar servidor web para servir `dist/`
+4. Configurar permisos en `uploads/`
 
 ## 📝 Notas
 
-- El sistema actual sigue funcionando normalmente
-- El sistema nuevo se desarrolla en paralelo
-- Ambos sistemas pueden coexistir durante la migración
-- Los datos se crearán desde cero en el sistema nuevo
-
-## 🚀 Próximos Pasos
-
-1. Ejecutar `./organize-structure.sh` para organizar archivos
-2. Instalar Laravel en `new/`
-3. Copiar archivos de Laravel a `new/`
-4. Configurar base de datos
-5. Crear vistas Blade según necesidad
+- El build se genera en `dist/`
+- Los uploads se guardan en `uploads/`
+- Las credenciales de Firebase deben estar en `src/config/firebase.js`
