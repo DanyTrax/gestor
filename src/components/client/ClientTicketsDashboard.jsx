@@ -173,7 +173,7 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
           type: 'Notificación',
           recipientType: 'Cliente',
           module: 'tickets',
-          event: 'ticket_created',
+          event: 'ticketReply', // Usar evento existente en la configuración
           metadata: {
             ticketId: ticketId,
             ticketNumber: ticketNumber
@@ -209,7 +209,7 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
           type: 'Notificación',
           recipientType: 'Administrador',
           module: 'tickets',
-          event: 'ticket_created_admin',
+          event: 'newTicket', // Usar evento existente en la configuración
           metadata: {
             ticketId: ticketId,
             ticketNumber: ticketNumber,
