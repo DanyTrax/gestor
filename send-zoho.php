@@ -135,25 +135,41 @@ function sendEmailViaZoho($accessToken, $fromEmail, $fromName, $to, $toName, $su
     
     // Buscar el email en las cuentas disponibles
     $accountId = null;
+    $foundAccount = null;
     foreach ($accounts as $account) {
-        if (isset($account['emailAddress']) && strtolower($account['emailAddress']) === strtolower($fromEmail)) {
+        $accountEmail = $account['emailAddress'] ?? $account['email'] ?? '';
+        if (strtolower($accountEmail) === strtolower($fromEmail)) {
             // Usar el accountId si está disponible, sino usar el email
-            $accountId = $account['accountId'] ?? $account['emailAddress'] ?? $fromEmail;
+            $accountId = $account['accountId'] ?? $account['id'] ?? $accountEmail;
+            $foundAccount = $account;
             break;
         }
     }
     
     // Si no se encontró en las cuentas, usar el email directamente
+    // Pero primero intentar sin codificar (algunas versiones de Zoho lo requieren así)
     if (!$accountId) {
         $accountId = $fromEmail;
     }
     
-    // Asegurar que el accountId esté URL-encoded correctamente
-    $accountIdEncoded = rawurlencode($accountId);
+    // Intentar diferentes formatos del endpoint
+    $endpointsToTry = [];
     
-    // Endpoint de Zoho Mail API para enviar emails
-    // Formato: https://mail.zoho.com/api/accounts/{accountId}/messages
-    $zohoApiUrl = "https://mail.zoho.com/api/accounts/" . $accountIdEncoded . "/messages";
+    // Formato 1: Email codificado
+    $endpointsToTry[] = "https://mail.zoho.com/api/accounts/" . rawurlencode($accountId) . "/messages";
+    
+    // Formato 2: Email sin codificar (si no es el email codificado)
+    if ($accountId !== rawurlencode($accountId)) {
+        $endpointsToTry[] = "https://mail.zoho.com/api/accounts/" . $accountId . "/messages";
+    }
+    
+    // Formato 3: Si tenemos accountId numérico de la lista de cuentas
+    if ($foundAccount && isset($foundAccount['accountId'])) {
+        $endpointsToTry[] = "https://mail.zoho.com/api/accounts/" . $foundAccount['accountId'] . "/messages";
+    }
+    
+    // Usar el primer formato por defecto
+    $zohoApiUrl = $endpointsToTry[0];
     
     // Preparar el cuerpo del email según la documentación de Zoho Mail API
     $emailData = [
@@ -206,12 +222,27 @@ function sendEmailViaZoho($accessToken, $fromEmail, $fromName, $to, $toName, $su
             $detailedError = "Cuenta de email no encontrada en Zoho (404). ";
             $detailedError .= "Endpoint usado: " . htmlspecialchars($zohoApiUrl, ENT_QUOTES, 'UTF-8') . "\n";
             $detailedError .= "Email remitente: $fromEmail\n";
-            $detailedError .= "Account ID usado: " . ($accountIdEncoded ?? $accountId ?? 'N/A') . "\n";
-            $detailedError .= "Verifica que:\n";
+            $detailedError .= "Account ID usado: " . ($accountId ?? 'N/A') . "\n";
+            
+            // Agregar información sobre las cuentas obtenidas
+            if (!empty($accounts)) {
+                $detailedError .= "\nCuentas disponibles en Zoho (" . count($accounts) . "):\n";
+                foreach ($accounts as $idx => $acc) {
+                    $accEmail = $acc['emailAddress'] ?? $acc['email'] ?? 'N/A';
+                    $accId = $acc['accountId'] ?? $acc['id'] ?? 'N/A';
+                    $detailedError .= "  " . ($idx + 1) . ". Email: $accEmail, ID: $accId\n";
+                }
+            } else {
+                $detailedError .= "\n⚠️ No se pudieron obtener las cuentas de Zoho (la API /api/accounts puede no estar disponible o el Access Token no tiene permisos).\n";
+            }
+            
+            $detailedError .= "\nVerifica que:\n";
             $detailedError .= "1. El email '$fromEmail' esté configurado en Zoho Mail\n";
             $detailedError .= "2. El email esté habilitado para API en Zoho Mail\n";
             $detailedError .= "3. El dominio esté verificado en Zoho\n";
             $detailedError .= "4. El email pertenezca a la misma cuenta/organización que autorizó la aplicación\n";
+            $detailedError .= "5. La aplicación tenga el scope 'ZohoMail.accounts.READ' para listar cuentas\n";
+            
             if ($errorDetails) {
                 $detailedError .= "\nDetalles: " . (is_array($errorDetails) ? json_encode($errorDetails) : $errorDetails);
             }
