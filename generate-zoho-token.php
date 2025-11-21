@@ -63,7 +63,7 @@ if ($CLIENT_ID === 'TU_CLIENT_ID_AQUI' || $CLIENT_SECRET === 'TU_CLIENT_SECRET_A
 // Paso 1: Si no hay código de autorización, mostrar link de autorización
 if (!isset($_GET['code'])) {
     $authUrl = 'https://accounts.zoho.com/oauth/v2/auth?' . http_build_query([
-        'scope' => 'ZohoMail.messages.CREATE',
+        'scope' => 'VirtualOffice.messages.CREATE,VirtualOffice.accounts.READ',
         'client_id' => $CLIENT_ID,
         'response_type' => 'code',
         'access_type' => 'offline',

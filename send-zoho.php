@@ -109,7 +109,8 @@ function getZohoAccounts($accessToken) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Authorization: Zoho-oauthtoken ' . $accessToken,
-        'Content-Type: application/json'
+        'Content-Type: application/json',
+        'User-Agent: zm_gestor'
     ]);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
@@ -120,7 +121,8 @@ function getZohoAccounts($accessToken) {
     
     if ($httpCode === 200) {
         $result = json_decode($response, true);
-        return $result['data']['accounts'] ?? [];
+        // La respuesta de Zoho tiene estructura: { data: [ { accountId: "...", sendMailDetails: [...] } ] }
+        return $result['data'] ?? [];
     }
     
     return [];
@@ -130,46 +132,36 @@ function getZohoAccounts($accessToken) {
  * Enviar email usando Zoho Mail API
  */
 function sendEmailViaZoho($accessToken, $fromEmail, $fromName, $to, $toName, $subject, $html, $text) {
-    // Primero intentar obtener las cuentas para verificar el formato correcto
+    // Primero obtener las cuentas para encontrar el accountId numérico
     $accounts = getZohoAccounts($accessToken);
     
-    // Buscar el email en las cuentas disponibles
+    // Buscar el email en sendMailDetails de cada cuenta (como hace el plugin de WordPress)
     $accountId = null;
-    $foundAccount = null;
     foreach ($accounts as $account) {
-        $accountEmail = $account['emailAddress'] ?? $account['email'] ?? '';
-        if (strtolower($accountEmail) === strtolower($fromEmail)) {
-            // Usar el accountId si está disponible, sino usar el email
-            $accountId = $account['accountId'] ?? $account['id'] ?? $accountEmail;
-            $foundAccount = $account;
-            break;
+        // Cada cuenta tiene sendMailDetails con fromAddress
+        $sendMailDetails = $account['sendMailDetails'] ?? [];
+        foreach ($sendMailDetails as $mailDetail) {
+            $detailFromAddress = $mailDetail['fromAddress'] ?? '';
+            if (strcasecmp($detailFromAddress, $fromEmail) === 0) {
+                // Usar el accountId numérico de la cuenta (no el email)
+                $accountId = $account['accountId'] ?? null;
+                break 2; // Salir de ambos loops
+            }
         }
     }
     
-    // Si no se encontró en las cuentas, usar el email directamente
-    // Pero primero intentar sin codificar (algunas versiones de Zoho lo requieren así)
+    // Si no se encontró, usar el accountId del primer elemento (fallback)
+    if (!$accountId && !empty($accounts) && isset($accounts[0]['accountId'])) {
+        $accountId = $accounts[0]['accountId'];
+    }
+    
+    // Si aún no hay accountId, lanzar error
     if (!$accountId) {
-        $accountId = $fromEmail;
+        throw new Exception("No se pudo encontrar el Account ID para el email '$fromEmail'. Verifica que el email esté configurado en Zoho Mail y que la aplicación tenga permisos para leer cuentas.");
     }
     
-    // Intentar diferentes formatos del endpoint
-    $endpointsToTry = [];
-    
-    // Formato 1: Email codificado
-    $endpointsToTry[] = "https://mail.zoho.com/api/accounts/" . rawurlencode($accountId) . "/messages";
-    
-    // Formato 2: Email sin codificar (si no es el email codificado)
-    if ($accountId !== rawurlencode($accountId)) {
-        $endpointsToTry[] = "https://mail.zoho.com/api/accounts/" . $accountId . "/messages";
-    }
-    
-    // Formato 3: Si tenemos accountId numérico de la lista de cuentas
-    if ($foundAccount && isset($foundAccount['accountId'])) {
-        $endpointsToTry[] = "https://mail.zoho.com/api/accounts/" . $foundAccount['accountId'] . "/messages";
-    }
-    
-    // Usar el primer formato por defecto
-    $zohoApiUrl = $endpointsToTry[0];
+    // Endpoint de Zoho Mail API - usar accountId numérico (no el email)
+    $zohoApiUrl = "https://mail.zoho.com/api/accounts/" . $accountId . "/messages";
     
     // Preparar el cuerpo del email según la documentación de Zoho Mail API
     $emailData = [
