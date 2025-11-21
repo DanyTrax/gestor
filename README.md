@@ -42,8 +42,23 @@ npm run build
 
 ### Producción
 
+#### Opción 1: Build Local (Recomendado para cPanel)
+
 ```bash
-# Compilar
+# En tu computadora local
+npm install
+npm run build
+
+# Subir dist/ + archivos PHP a cPanel
+# (Ver docs/EJECUTAR-NPM-EN-CPANEL.md)
+```
+
+#### Opción 2: Build en Servidor (cPanel)
+
+```bash
+# Requiere Node.js instalado en cPanel
+# Ver docs/EJECUTAR-NPM-EN-CPANEL.md para instrucciones completas
+npm install
 npm run build
 
 # Los archivos compilados estarán en dist/
@@ -79,10 +94,21 @@ docker-compose up -d
 
 ### cPanel
 
-1. Subir archivos a servidor
-2. Ejecutar `npm run build`
-3. Configurar servidor web para servir `dist/`
-4. Configurar permisos en `uploads/`
+**⚠️ IMPORTANTE:** Ver `docs/EJECUTAR-NPM-EN-CPANEL.md` para instrucciones completas.
+
+**Método Recomendado (Build Local):**
+1. Hacer build localmente: `npm run build`
+2. Subir `dist/` + archivos PHP (`send-email.php`, `upload.php`, `send-zoho.php`) a `public_html/`
+3. Subir `.htaccess` a `public_html/`
+4. Crear `uploads/` con permisos 775
+5. Configurar permisos en `uploads/`
+
+**Método Alternativo (Build en Servidor):**
+1. Instalar Node.js en cPanel (ver documentación)
+2. Subir todos los archivos del proyecto
+3. Ejecutar `npm install` y `npm run build` desde Terminal de cPanel
+4. Configurar servidor web para servir `dist/`
+5. Configurar permisos en `uploads/`
 
 ## 📝 Notas
 
