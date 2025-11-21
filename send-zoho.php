@@ -160,6 +160,16 @@ function sendEmailViaZoho($accessToken, $fromEmail, $fromName, $to, $toName, $su
         throw new Exception("No se pudo encontrar el Account ID para el email '$fromEmail'. Verifica que el email esté configurado en Zoho Mail y que la aplicación tenga permisos para leer cuentas.");
     }
     
+    // Limpiar el accountId: remover cualquier carácter no numérico al final
+    $accountId = trim($accountId);
+    // Remover cualquier letra al final (como "V" que puede venir de la respuesta)
+    $accountId = preg_replace('/[^0-9]+$/', '', $accountId);
+    
+    // Validar que el accountId sea numérico
+    if (!is_numeric($accountId)) {
+        throw new Exception("Account ID inválido obtenido de Zoho: '$accountId'. Debe ser un número.");
+    }
+    
     // Endpoint de Zoho Mail API - usar accountId numérico (no el email)
     $zohoApiUrl = "https://mail.zoho.com/api/accounts/" . $accountId . "/messages";
     
