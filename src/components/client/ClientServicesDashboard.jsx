@@ -125,19 +125,6 @@ function ClientServicesDashboard({ user, isDemo, userProfile }) {
         return gws;
       };
 
-      // Utilidad para obtener la config de gateways
-      const getGatewaysConfig = (paymentConfigRaw) => {
-        if (!paymentConfigRaw) return null;
-        if (paymentConfigRaw.gateways) return paymentConfigRaw.gateways;
-        const { bold, paypal, payu, bankTransfer } = paymentConfigRaw;
-        const gws = {};
-        if (bold) gws.bold = { name: 'Bold', ...bold };
-        if (paypal) gws.paypal = { name: 'PayPal', ...paypal };
-        if (payu) gws.payu = { name: 'PayU', ...payu };
-        if (bankTransfer) gws.bankTransfer = { name: 'Transferencia Bancaria', ...bankTransfer };
-        return gws;
-      };
-
       // Obtener configuración de gateways
       let gatewaysSelected = paymentConfig ? getGatewaysConfig(paymentConfig) : null;
       if (!gatewaysSelected) {
