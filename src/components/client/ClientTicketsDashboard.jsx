@@ -138,7 +138,9 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
       
       // Enviar notificaciones por email
       try {
+        console.log('📧 Iniciando envío de notificaciones por email para ticket:', ticketId);
         await loadEmailConfig();
+        console.log('✅ Configuración de email cargada');
         
         const clientName = userProfile?.fullName || user.email;
         const ticketNumber = ticketData.ticketNumber;
@@ -164,7 +166,8 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
           <p>Saludos cordiales,<br>Equipo de Soporte</p>
         `;
         
-        await sendEmail({
+        console.log('📧 Enviando email al cliente:', user.email);
+        const clientEmailResult = await sendEmail({
           to: user.email,
           toName: clientName,
           subject: `Ticket Creado - ${ticketNumber}`,
@@ -179,6 +182,7 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
             ticketNumber: ticketNumber
           }
         });
+        console.log('📧 Resultado email cliente:', clientEmailResult);
         
         // Email al administrador - Notificación de nuevo ticket
         const adminEmailHtml = `
@@ -200,7 +204,8 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
         const emailConfig = await loadEmailConfig();
         const adminEmail = emailConfig?.fromEmail || user.email; // Fallback al email del cliente si no hay config
         
-        await sendEmail({
+        console.log('📧 Enviando email al administrador:', adminEmail);
+        const adminEmailResult = await sendEmail({
           to: adminEmail,
           toName: emailConfig?.fromName || 'Administrador',
           subject: `Nuevo Ticket - ${ticketNumber} - ${ticketSubject}`,
@@ -217,8 +222,11 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
             clientName: clientName
           }
         });
+        console.log('📧 Resultado email administrador:', adminEmailResult);
+        console.log('✅ Notificaciones por email completadas');
       } catch (emailError) {
-        console.error("Error sending ticket notification emails:", emailError);
+        console.error("❌ Error sending ticket notification emails:", emailError);
+        console.error("❌ Detalles del error:", emailError.message, emailError.stack);
         // No fallar la creación del ticket si falla el email
       }
       

@@ -144,10 +144,11 @@ export const sendEmail = async ({
   try {
     // Verificar si el email está habilitado
     if (!emailConfig || !emailConfig.enabled) {
-      console.warn('Email service not configured or disabled');
+      console.warn('⚠️ Email service not configured or disabled');
+      console.log('📝 Registrando mensaje como fallido en historial');
       
       // Aún registrar el mensaje en Firestore para historial
-      await registerMessage({
+      const messageId = await registerMessage({
         to,
         toName,
         subject,
@@ -160,8 +161,9 @@ export const sendEmail = async ({
         event,
         metadata
       });
+      console.log('📝 Mensaje registrado con ID:', messageId);
       
-      return { success: false, error: 'Email service not configured' };
+      return { success: false, error: 'Email service not configured', messageId };
     }
 
     // Verificar notificaciones por módulo
@@ -452,19 +454,35 @@ export const sendEmail = async ({
  */
 const registerMessage = async (messageData) => {
   try {
+    console.log('📝 Registrando mensaje en Firestore:', {
+      to: messageData.to,
+      subject: messageData.subject,
+      type: messageData.type,
+      recipientType: messageData.recipientType,
+      module: messageData.module,
+      event: messageData.event
+    });
+    
     const messageRef = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
     const provider = emailConfig?.provider || 'smtp';
-    const docRef = await addDoc(messageRef, {
+    
+    const messageDoc = {
       ...messageData,
       channel: 'email',
       provider: provider, // Agregar proveedor usado
       sentAt: Timestamp.now(),
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
-    });
+    };
+    
+    console.log('📝 Datos del mensaje a guardar:', messageDoc);
+    
+    const docRef = await addDoc(messageRef, messageDoc);
+    console.log('✅ Mensaje registrado exitosamente con ID:', docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error('Error registering message:', error);
+    console.error('❌ Error registering message:', error);
+    console.error('❌ Detalles del error:', error.message, error.code, error.stack);
     return null;
   }
 };
