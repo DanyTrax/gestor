@@ -142,7 +142,7 @@ function EmailConfigTab({ isDemo }) {
         } else if (errorMsg.includes('PHPMailer') || errorMsg.includes('Class')) {
           suggestion = ' PHPMailer no está instalado. Ejecuta: composer require phpmailer/phpmailer';
         } else if (errorMsg.includes('Could not authenticate') || errorMsg.includes('authentication')) {
-          suggestion = errorDetails || ' Verifica: 1) Usuario SMTP debe ser el email completo (ej: noreply@dominio.com), 2) Contraseña correcta, 3) Puerto y conexión segura (587/TLS o 465/SSL), 4) Servidor SMTP correcto';
+          suggestion = errorDetails || ' Verifica: 1) Usuario SMTP debe ser el email completo (ej: noreply@dominio.com), 2) Contraseña correcta, 3) Puerto y conexión segura (587 con TLS o 465 con SSL), 4) Servidor SMTP correcto';
         } else if (errorMsg.includes('SMTP') || errorMsg.includes('connect')) {
           suggestion = errorDetails || ' Verifica la configuración SMTP (servidor, puerto, usuario, contraseña)';
         }
