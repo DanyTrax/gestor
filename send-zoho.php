@@ -99,13 +99,57 @@ function getZohoAccessToken($clientId, $clientSecret, $refreshToken) {
 }
 
 /**
+ * Obtener lista de cuentas disponibles en Zoho Mail
+ */
+function getZohoAccounts($accessToken) {
+    $accountsUrl = "https://mail.zoho.com/api/accounts";
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $accountsUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Zoho-oauthtoken ' . $accessToken,
+        'Content-Type: application/json'
+    ]);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($httpCode === 200) {
+        $result = json_decode($response, true);
+        return $result['data']['accounts'] ?? [];
+    }
+    
+    return [];
+}
+
+/**
  * Enviar email usando Zoho Mail API
  */
 function sendEmailViaZoho($accessToken, $fromEmail, $fromName, $to, $toName, $subject, $html, $text) {
+    // Primero intentar obtener las cuentas para verificar el formato correcto
+    $accounts = getZohoAccounts($accessToken);
+    
+    // Buscar el email en las cuentas disponibles
+    $accountId = null;
+    foreach ($accounts as $account) {
+        if (isset($account['emailAddress']) && strtolower($account['emailAddress']) === strtolower($fromEmail)) {
+            // Usar el accountId si está disponible, sino usar el email
+            $accountId = $account['accountId'] ?? $account['emailAddress'] ?? $fromEmail;
+            break;
+        }
+    }
+    
+    // Si no se encontró en las cuentas, usar el email directamente
+    if (!$accountId) {
+        $accountId = urlencode($fromEmail);
+    }
+    
     // Endpoint de Zoho Mail API para enviar emails
     // Formato: https://mail.zoho.com/api/accounts/{accountId}/messages
-    // El accountId es el email del remitente
-    $accountId = urlencode($fromEmail);
     $zohoApiUrl = "https://mail.zoho.com/api/accounts/$accountId/messages";
     
     // Preparar el cuerpo del email según la documentación de Zoho Mail API
@@ -147,19 +191,45 @@ function sendEmailViaZoho($accessToken, $fromEmail, $fromName, $to, $toName, $su
         $errorData = json_decode($response, true);
         $errorMsg = $errorData['message'] ?? $errorData['error'] ?? 'Error desconocido';
         $errorCode = $errorData['code'] ?? $httpCode;
+        $errorDetails = $errorData['data'] ?? $errorData['details'] ?? '';
         
         // Mensajes de error más descriptivos
         if ($httpCode === 401) {
             throw new Exception("Error de autenticación con Zoho (401). Verifica que el Access Token sea válido y que el Refresh Token no haya expirado.");
         } elseif ($httpCode === 403) {
-            throw new Exception("Error de permisos con Zoho (403). Verifica que la aplicación tenga permisos para enviar emails.");
+            throw new Exception("Error de permisos con Zoho (403). Verifica que la aplicación tenga permisos para enviar emails. Scope requerido: ZohoMail.messages.CREATE");
         } elseif ($httpCode === 404) {
-            throw new Exception("Cuenta de email no encontrada en Zoho (404). Verifica que el email '$fromEmail' esté configurado en Zoho Mail.");
+            // Error 404 puede ser por varias razones
+            $detailedError = "Cuenta de email no encontrada en Zoho (404). ";
+            $detailedError .= "Endpoint usado: $zohoApiUrl\n";
+            $detailedError .= "Email remitente: $fromEmail\n";
+            $detailedError .= "Verifica que:\n";
+            $detailedError .= "1. El email '$fromEmail' esté configurado en Zoho Mail\n";
+            $detailedError .= "2. El email esté habilitado para API en Zoho Mail\n";
+            $detailedError .= "3. El dominio esté verificado en Zoho\n";
+            $detailedError .= "4. El email pertenezca a la misma cuenta/organización que autorizó la aplicación\n";
+            if ($errorDetails) {
+                $detailedError .= "\nDetalles: " . (is_array($errorDetails) ? json_encode($errorDetails) : $errorDetails);
+            }
+            if ($errorMsg && $errorMsg !== 'Error desconocido') {
+                $detailedError .= "\nMensaje de Zoho: " . $errorMsg;
+            }
+            if ($response) {
+                $detailedError .= "\nRespuesta completa de Zoho: " . substr($response, 0, 1000);
+            }
+            throw new Exception($detailedError);
         } elseif ($httpCode === 429) {
             throw new Exception("Límite de rate excedido en Zoho (429). Espera unos minutos antes de intentar nuevamente.");
         }
         
-        throw new Exception("Error al enviar email vía Zoho ($httpCode): $errorMsg");
+        $fullError = "Error al enviar email vía Zoho ($httpCode): $errorMsg";
+        if ($errorDetails) {
+            $fullError .= " | Detalles: " . (is_array($errorDetails) ? json_encode($errorDetails) : $errorDetails);
+        }
+        if ($response) {
+            $fullError .= " | Respuesta completa: " . substr($response, 0, 500);
+        }
+        throw new Exception($fullError);
     }
     
     $result = json_decode($response, true);
