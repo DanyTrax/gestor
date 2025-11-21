@@ -1,19 +1,11 @@
-RewriteEngine On
-
-# Si el archivo o directorio existe en la raíz, sírvelo normalmente
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-
-# Redirige la raíz al index de dist
-RewriteRule ^$ dist/index.html [L]
-
-# Si la ruta no apunta a dist, reescribe para servir desde dist/
-RewriteCond %{REQUEST_URI} !^/dist/
-RewriteRule ^(.*)$ dist/$1 [L]
-
-# Tipos MIME básicos por si el servidor no los define
-AddType application/javascript .js .mjs
-AddType text/css .css
-AddType image/svg+xml .svg
-
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Regla para evitar que los archivos y directorios existentes sean reescritos
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  # Si la solicitud no es un archivo o directorio real, redirige a index.html
+  # PERO EXCLUYE LOS ENDPOINTS PHP
+  RewriteCond %{REQUEST_URI} !send-email.php
+  RewriteCond %{REQUEST_URI} !upload.php
+  RewriteRule ^ index.html [L]
+</IfModule>
