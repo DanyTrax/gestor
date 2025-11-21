@@ -178,19 +178,19 @@ function sendEmailViaZoho($accessToken, $fromEmail, $fromName, $to, $toName, $su
     // Endpoint de Zoho Mail API - usar accountId numérico (no el email)
     $zohoApiUrl = "https://mail.zoho.com/api/accounts/" . $accountId . "/messages";
     
-    // Preparar el cuerpo del email según la documentación de Zoho Mail API
+    // Preparar el cuerpo del email según el plugin de WordPress (que funciona)
     $emailData = [
         'fromAddress' => $fromName ? "$fromName <$fromEmail>" : $fromEmail,
         'toAddress' => $toName ? "$toName <$to>" : $to,
         'subject' => $subject,
-        'content' => $html,
-        'mailFormat' => 'html'
+        'content' => $html
     ];
     
-    // Agregar texto plano como alternativa si está disponible
-    if ($text && $text !== strip_tags($html)) {
-        $emailData['textContent'] = $text;
-    }
+    // Solo agregar mailFormat si es HTML (como hace el plugin de WordPress)
+    // El plugin solo agrega mailFormat cuando es 'html', no siempre
+    $emailData['mailFormat'] = 'html';
+    
+    // NO enviar textContent - Zoho no lo acepta y causa error EXTRA_KEY_FOUND_IN_JSON
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $zohoApiUrl);
