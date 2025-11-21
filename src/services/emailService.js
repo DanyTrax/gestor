@@ -3,7 +3,7 @@
  * Sincroniza con la configuración de mensajería
  */
 
-import { collection, addDoc, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, appId } from '../config/firebase';
 
 // Variable para almacenar la configuración
@@ -24,11 +24,19 @@ export const loadEmailConfig = async () => {
     
     // Valores por defecto
     emailConfig = {
+      provider: 'smtp', // 'smtp' o 'zoho'
       smtpHost: '',
       smtpPort: 587,
       smtpSecure: false,
       smtpUser: '',
       smtpPassword: '',
+      // Configuración Zoho Mail
+      zohoClientId: '',
+      zohoClientSecret: '',
+      zohoRefreshToken: '',
+      zohoAccessToken: '',
+      zohoAccessTokenExpiry: null,
+      // Configuración común
       fromEmail: '',
       fromName: '',
       enabled: false
@@ -184,7 +192,7 @@ export const sendEmail = async ({
       return { success: false, error: 'Notification disabled' };
     }
 
-    // Enviar email real usando el endpoint PHP
+    // Enviar email real usando el endpoint PHP según el proveedor
     try {
       // Verificar si estamos en desarrollo local
       const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -216,12 +224,38 @@ export const sendEmail = async ({
         };
       }
 
-      const response = await fetch('/send-email.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Determinar qué endpoint usar según el proveedor
+      const provider = emailConfig.provider || 'smtp';
+      let endpoint = '/send-email.php';
+      let requestBody = {};
+
+      if (provider === 'zoho') {
+        // Configuración para Zoho Mail API
+        endpoint = '/send-zoho.php';
+        
+        // Validar configuración Zoho
+        if (!emailConfig.zohoClientId || !emailConfig.zohoClientSecret || 
+            !emailConfig.zohoRefreshToken || !emailConfig.fromEmail) {
+          throw new Error('Configuración de Zoho Mail incompleta. Verifica Client ID, Client Secret, Refresh Token y From Email.');
+        }
+
+        requestBody = {
+          to,
+          toName,
+          subject,
+          html,
+          text,
+          zohoConfig: {
+            clientId: emailConfig.zohoClientId,
+            clientSecret: emailConfig.zohoClientSecret,
+            refreshToken: emailConfig.zohoRefreshToken,
+            fromEmail: emailConfig.fromEmail,
+            fromName: emailConfig.fromName
+          }
+        };
+      } else {
+        // Configuración para SMTP (método actual)
+        requestBody = {
           to,
           toName,
           subject,
@@ -236,7 +270,15 @@ export const sendEmail = async ({
             fromEmail: emailConfig.fromEmail,
             fromName: emailConfig.fromName
           }
-        })
+        };
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
       }).catch(networkError => {
         // Error de red (endpoint no encontrado, CORS, etc.)
         console.error('Error de red al llamar send-email.php:', networkError);
@@ -280,6 +322,22 @@ export const sendEmail = async ({
       }
 
       if (result.success) {
+        // Si es Zoho y retornó un nuevo access token, actualizarlo en Firestore
+        if (provider === 'zoho' && result.accessToken && result.expiresAt) {
+          try {
+            const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'email_config');
+            await setDoc(configRef, {
+              zohoAccessToken: result.accessToken,
+              zohoAccessTokenExpiry: result.expiresAt
+            }, { merge: true });
+            emailConfig.zohoAccessToken = result.accessToken;
+            emailConfig.zohoAccessTokenExpiry = result.expiresAt;
+          } catch (tokenUpdateError) {
+            console.warn('No se pudo actualizar el access token en Firestore:', tokenUpdateError);
+            // No fallar el envío si no se puede actualizar el token
+          }
+        }
+
         // Registrar mensaje como enviado exitosamente
         const messageId = await registerMessage({
           to,
@@ -291,10 +349,12 @@ export const sendEmail = async ({
           status: 'Enviado',
           module,
           event,
-          metadata
+          metadata,
+          provider: provider,
+          externalId: result.zohoMessageId || null
         });
 
-        return { success: true, messageId, sent: true };
+        return { success: true, messageId, sent: true, provider: provider };
       } else {
         // Error al enviar - incluir detalles adicionales si están disponibles
         const errorMessage = result.error || 'Error desconocido al enviar email';
@@ -393,9 +453,11 @@ export const sendEmail = async ({
 const registerMessage = async (messageData) => {
   try {
     const messageRef = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+    const provider = emailConfig?.provider || 'smtp';
     const docRef = await addDoc(messageRef, {
       ...messageData,
       channel: 'email',
+      provider: provider, // Agregar proveedor usado
       sentAt: Timestamp.now(),
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
@@ -419,8 +481,19 @@ export const testEmailConfig = async (testEmail) => {
       return { success: false, error: 'Email service not configured or disabled' };
     }
 
-    if (!emailConfig.smtpHost || !emailConfig.smtpUser || !emailConfig.fromEmail) {
-      return { success: false, error: 'Configuración SMTP incompleta. Verifica todos los campos.' };
+    const provider = emailConfig.provider || 'smtp';
+    
+    if (provider === 'zoho') {
+      // Validar configuración Zoho
+      if (!emailConfig.zohoClientId || !emailConfig.zohoClientSecret || 
+          !emailConfig.zohoRefreshToken || !emailConfig.fromEmail) {
+        return { success: false, error: 'Configuración de Zoho Mail incompleta. Verifica Client ID, Client Secret, Refresh Token y From Email.' };
+      }
+    } else {
+      // Validar configuración SMTP
+      if (!emailConfig.smtpHost || !emailConfig.smtpUser || !emailConfig.fromEmail) {
+        return { success: false, error: 'Configuración SMTP incompleta. Verifica todos los campos.' };
+      }
     }
 
     const testSubject = '✅ Prueba de Configuración - Gestor de Cobros';
@@ -476,9 +549,31 @@ export const testEmailConfig = async (testEmail) => {
               Los emails del sistema ahora se enviarán realmente a tus clientes y administradores.
             </div>
             
-            <h3 style="color: #374151; margin-top: 30px;">🔧 Detalles de Configuración SMTP</h3>
+            <h3 style="color: #374151; margin-top: 30px;">🔧 Detalles de Configuración ${provider === 'zoho' ? 'Zoho Mail API' : 'SMTP'}</h3>
             
             <table class="config-table">
+              ${provider === 'zoho' ? `
+              <tr>
+                <td>Proveedor:</td>
+                <td><span class="highlight">Zoho Mail API</span></td>
+              </tr>
+              <tr>
+                <td>Client ID:</td>
+                <td><span class="highlight">${emailConfig.zohoClientId ? emailConfig.zohoClientId.substring(0, 20) + '...' : 'No configurado'}</span></td>
+              </tr>
+              <tr>
+                <td>Email Remitente:</td>
+                <td><span class="highlight">${emailConfig.fromEmail || 'No configurado'}</span></td>
+              </tr>
+              <tr>
+                <td>Nombre Remitente:</td>
+                <td><span class="highlight">${emailConfig.fromName || 'No configurado'}</span></td>
+              </tr>
+              ` : `
+              <tr>
+                <td>Proveedor:</td>
+                <td><span class="highlight">SMTP</span></td>
+              </tr>
               <tr>
                 <td>Servidor SMTP:</td>
                 <td><span class="highlight">${emailConfig.smtpHost || 'No configurado'}</span></td>
@@ -503,6 +598,7 @@ export const testEmailConfig = async (testEmail) => {
                 <td>Nombre Remitente:</td>
                 <td><span class="highlight">${emailConfig.fromName || 'No configurado'}</span></td>
               </tr>
+              `}
             </table>
             
             <h3 style="color: #374151; margin-top: 30px;">📊 Información del Envío</h3>
@@ -561,14 +657,22 @@ Este es un email de prueba para verificar que tu configuración SMTP está funci
 ───────────────────────────────────────────────────────
 Si recibiste este email, significa que tu servidor SMTP está configurado y funcionando perfectamente. Los emails del sistema ahora se enviarán realmente a tus clientes y administradores.
 
-🔧 DETALLES DE CONFIGURACIÓN SMTP:
+🔧 DETALLES DE CONFIGURACIÓN ${provider === 'zoho' ? 'ZOHO MAIL API' : 'SMTP'}:
 ───────────────────────────────────────────────────────
+${provider === 'zoho' ? `
+Proveedor: Zoho Mail API
+Client ID: ${emailConfig.zohoClientId ? emailConfig.zohoClientId.substring(0, 20) + '...' : 'No configurado'}
+Email Remitente: ${emailConfig.fromEmail || 'No configurado'}
+Nombre Remitente: ${emailConfig.fromName || 'No configurado'}
+` : `
+Proveedor: SMTP
 Servidor SMTP: ${emailConfig.smtpHost || 'No configurado'}
 Puerto: ${emailConfig.smtpPort || 'No configurado'}
 Seguridad: ${emailConfig.smtpSecure ? 'SSL/TLS ✓' : 'No seguro'}
 Usuario SMTP: ${emailConfig.smtpUser || 'No configurado'}
 Email Remitente: ${emailConfig.fromEmail || 'No configurado'}
 Nombre Remitente: ${emailConfig.fromName || 'No configurado'}
+`}
 
 📊 INFORMACIÓN DEL ENVÍO:
 ───────────────────────────────────────────────────────

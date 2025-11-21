@@ -14,6 +14,7 @@ function ClientServicesDashboard({ user, isDemo, userProfile }) {
   const [pendingPaymentsByService, setPendingPaymentsByService] = useState({});
   const [renewalConfig, setRenewalConfig] = useState(null);
   const [confirmationModal, setConfirmationModal] = useState({ isOpen: false, service: null });
+  const [paymentConfig, setPaymentConfig] = useState(null);
 
   // Calcular fecha de vencimiento basada en el ciclo
   const calculateExpirationDate = (service) => {
@@ -124,22 +125,27 @@ function ClientServicesDashboard({ user, isDemo, userProfile }) {
         return gws;
       };
 
-      const [paymentConfig, setPaymentConfig] = useState(null);
-      useEffect(() => {
-        if (isDemo) {
-          setPaymentConfig({
-            gateways: { bankTransfer: { enabled: true, name: 'Transferencia Bancaria', autoApprove: false } },
-          });
-          return;
-        }
-        const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'paymentConfig');
-        const unsubscribe = onSnapshot(configRef, (snap) => {
-          if (snap.exists()) setPaymentConfig(snap.data());
-        });
-        return () => unsubscribe();
-      }, [isDemo]);
+      // Utilidad para obtener la config de gateways
+      const getGatewaysConfig = (paymentConfigRaw) => {
+        if (!paymentConfigRaw) return null;
+        if (paymentConfigRaw.gateways) return paymentConfigRaw.gateways;
+        const { bold, paypal, payu, bankTransfer } = paymentConfigRaw;
+        const gws = {};
+        if (bold) gws.bold = { name: 'Bold', ...bold };
+        if (paypal) gws.paypal = { name: 'PayPal', ...paypal };
+        if (payu) gws.payu = { name: 'PayU', ...payu };
+        if (bankTransfer) gws.bankTransfer = { name: 'Transferencia Bancaria', ...bankTransfer };
+        return gws;
+      };
 
-      let gatewaysSelected = paymentConfig && getGatewaysConfig(paymentConfig);
+      // Obtener configuración de gateways
+      let gatewaysSelected = paymentConfig ? getGatewaysConfig(paymentConfig) : null;
+      if (!gatewaysSelected) {
+        // Valores por defecto si no hay configuración
+        gatewaysSelected = {
+          bankTransfer: { enabled: true, name: 'Transferencia Bancaria', autoApprove: false }
+        };
+      }
       const activeGateways = gatewaysSelected ? Object.values(gatewaysSelected).filter(gw => gw.enabled) : [];
       let defaultGateway = 'Transferencia Bancaria';
       let defaultMethod = 'Transferencia Bancaria';
@@ -244,6 +250,33 @@ function ClientServicesDashboard({ user, isDemo, userProfile }) {
 
     return () => unsubscribe();
   }, [user?.uid, isDemo]);
+
+  // Cargar configuración de pagos
+  useEffect(() => {
+    if (isDemo) {
+      setPaymentConfig({
+        gateways: {
+          bankTransfer: { enabled: true, name: 'Transferencia Bancaria', autoApprove: false }
+        }
+      });
+      return;
+    }
+
+    const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'paymentConfig');
+    const unsubscribe = onSnapshot(configRef, (snap) => {
+      if (snap.exists()) {
+        setPaymentConfig(snap.data());
+      } else {
+        // Valores por defecto
+        setPaymentConfig({
+          gateways: {
+            bankTransfer: { enabled: true, name: 'Transferencia Bancaria', autoApprove: false }
+          }
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, [isDemo]);
 
   // Cargar configuración de renovaciones (recordatorios y gracia)
   useEffect(() => {

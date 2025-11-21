@@ -351,6 +351,11 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                       {message.event.replace(/([A-Z])/g, ' $1').trim()}
                     </div>
                   )}
+                  {message.provider && (
+                    <div className="text-xs text-blue-600 font-medium mt-1">
+                      {message.provider === 'zoho' ? '📧 Zoho Mail API' : '📧 SMTP'}
+                    </div>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">{message.recipientName || 'N/A'}</div>

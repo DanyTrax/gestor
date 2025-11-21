@@ -7,11 +7,19 @@ import { testEmailConfig } from '../../../services/emailService';
 function EmailConfigTab({ isDemo }) {
   const { addNotification } = useNotification();
   const [config, setConfig] = useState({
+    provider: 'smtp', // 'smtp' o 'zoho'
     smtpHost: '',
     smtpPort: 587,
     smtpSecure: false,
     smtpUser: '',
     smtpPassword: '',
+    // Configuración Zoho Mail
+    zohoClientId: '',
+    zohoClientSecret: '',
+    zohoRefreshToken: '',
+    zohoAccessToken: '',
+    zohoAccessTokenExpiry: null,
+    // Configuración común
     fromEmail: '',
     fromName: '',
     enabled: false
@@ -22,11 +30,15 @@ function EmailConfigTab({ isDemo }) {
   useEffect(() => {
     if (isDemo) {
       setConfig({
+        provider: 'smtp',
         smtpHost: 'smtp.gmail.com',
         smtpPort: 587,
         smtpSecure: false,
         smtpUser: 'demo@example.com',
         smtpPassword: '****',
+        zohoClientId: '',
+        zohoClientSecret: '',
+        zohoRefreshToken: '',
         fromEmail: 'noreply@empresa.com',
         fromName: 'Gestor de Cobros',
         enabled: false
@@ -153,8 +165,128 @@ function EmailConfigTab({ isDemo }) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-bold mb-4">Configuración SMTP</h3>
+        <h3 className="text-xl font-bold mb-4">Configuración de Email</h3>
         <div className="bg-white p-6 rounded-lg shadow-md space-y-4">
+          {/* Selector de Proveedor */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Proveedor de Email
+            </label>
+            <select
+              name="provider"
+              value={config.provider || 'smtp'}
+              onChange={handleChange}
+              className="w-full p-2 border rounded-md"
+            >
+              <option value="smtp">SMTP (Servidor de Correo)</option>
+              <option value="zoho">Zoho Mail API</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {config.provider === 'zoho' 
+                ? 'Zoho Mail API: Envío directo vía API REST, mejor deliverability, sin necesidad de servidor SMTP.'
+                : 'SMTP: Método tradicional, requiere servidor SMTP configurado (cPanel, Gmail, etc.).'}
+            </p>
+          </div>
+
+          {/* Configuración según proveedor */}
+          {config.provider === 'zoho' ? (
+            /* Configuración Zoho Mail API */
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="font-semibold text-gray-800">Configuración Zoho Mail API</h4>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm font-medium text-blue-800 mb-2">📋 Pasos para Configurar Zoho Mail API:</p>
+                <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                  <li>Registra tu aplicación en <a href="https://api-console.zoho.com" target="_blank" rel="noopener noreferrer" className="underline">Zoho API Console</a></li>
+                  <li>Obtén tu Client ID y Client Secret</li>
+                  <li>Genera un Refresh Token (una vez, no expira)</li>
+                  <li>Configura los permisos de Zoho Mail API</li>
+                  <li>Ingresa las credenciales a continuación</li>
+                </ol>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Client ID (Zoho)
+                  </label>
+                  <input
+                    type="text"
+                    name="zohoClientId"
+                    value={config.zohoClientId}
+                    onChange={handleChange}
+                    placeholder="1000.XXXXXXXXXX"
+                    className="w-full p-2 border rounded-md"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Obtén esto desde Zoho API Console</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Client Secret (Zoho)
+                  </label>
+                  <input
+                    type="password"
+                    name="zohoClientSecret"
+                    value={config.zohoClientSecret}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    className="w-full p-2 border rounded-md"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Secreto de tu aplicación Zoho</p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Refresh Token (Zoho)
+                  </label>
+                  <input
+                    type="password"
+                    name="zohoRefreshToken"
+                    value={config.zohoRefreshToken}
+                    onChange={handleChange}
+                    placeholder="1000.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                    className="w-full p-2 border rounded-md"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Genera este token una vez desde Zoho API Console. No expira hasta que lo revoques.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Remitente (Zoho)
+                  </label>
+                  <input
+                    type="email"
+                    name="fromEmail"
+                    value={config.fromEmail}
+                    onChange={handleChange}
+                    placeholder="noreply@tudominio.com"
+                    className="w-full p-2 border rounded-md"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Debe ser un email configurado en tu cuenta Zoho Mail</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre Remitente
+                  </label>
+                  <input
+                    type="text"
+                    name="fromName"
+                    value={config.fromName}
+                    onChange={handleChange}
+                    placeholder="Gestor de Cobros"
+                    className="w-full p-2 border rounded-md"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Configuración SMTP (existente) */
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="font-semibold text-gray-800">Configuración SMTP</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -243,6 +375,7 @@ function EmailConfigTab({ isDemo }) {
               />
             </div>
           </div>
+          )}
 
           <div className="flex items-center space-x-2">
             <input
@@ -339,30 +472,58 @@ function EmailConfigTab({ isDemo }) {
 
       {/* Información de ayuda */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-800 mb-2">📧 Configuración de SMTP</h4>
-        
-        <div className="mb-4">
-          <h5 className="font-semibold text-blue-800 mb-2">✅ Usar cPanel (Recomendado si tienes hosting con cPanel)</h5>
-          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside mb-2">
-            <li><strong>Servidor SMTP:</strong> <code>mail.tu-dominio.com</code> o <code>smtp.tu-dominio.com</code></li>
-            <li><strong>Puerto:</strong> <code>587</code> (TLS) o <code>465</code> (SSL) - Marca "Usar conexión segura"</li>
-            <li><strong>Usuario:</strong> Email completo (ej: <code>noreply@tu-dominio.com</code>)</li>
-            <li><strong>Contraseña:</strong> La contraseña del email creado en cPanel</li>
-            <li><strong>Email Remitente:</strong> El mismo email (ej: <code>noreply@tu-dominio.com</code>)</li>
-          </ul>
-          <p className="text-xs text-blue-600 mt-2">
-            💡 <strong>Ventaja:</strong> No necesitas servicios externos, emails ilimitados desde tu propio dominio.
-          </p>
-        </div>
+        {config.provider === 'zoho' ? (
+          <>
+            <h4 className="font-semibold text-blue-800 mb-2">📧 Configuración de Zoho Mail API</h4>
+            
+            <div className="mb-4">
+              <h5 className="font-semibold text-blue-800 mb-2">✅ Ventajas de Zoho Mail API</h5>
+              <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside mb-2">
+                <li>No requiere servidor SMTP configurado</li>
+                <li>Mejor deliverability (Zoho maneja la reputación)</li>
+                <li>Tracking y analytics de emails</li>
+                <li>Sin límites de conexiones SMTP</li>
+                <li>Respuestas de error más detalladas</li>
+              </ul>
+            </div>
 
-        <div className="border-t border-blue-300 pt-3 mt-3">
-          <h5 className="font-semibold text-blue-800 mb-2">Otros Servicios:</h5>
-          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-            <li><strong>Gmail:</strong> smtp.gmail.com:587, usa "Contraseña de aplicación"</li>
-            <li><strong>Outlook:</strong> smtp-mail.outlook.com:587</li>
-            <li><strong>Yahoo:</strong> smtp.mail.yahoo.com:587</li>
-          </ul>
-        </div>
+            <div className="border-t border-blue-300 pt-3 mt-3">
+              <h5 className="font-semibold text-blue-800 mb-2">🔗 Enlaces Útiles:</h5>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li><a href="https://api-console.zoho.com" target="_blank" rel="noopener noreferrer" className="underline">Zoho API Console</a> - Registra tu aplicación</li>
+                <li><a href="https://www.zoho.com/mail/help/api/" target="_blank" rel="noopener noreferrer" className="underline">Documentación Zoho Mail API</a></li>
+                <li><a href="https://www.zoho.com/mail/help/dev-platform/connectors.html" target="_blank" rel="noopener noreferrer" className="underline">Guía de OAuth 2.0</a></li>
+              </ul>
+            </div>
+          </>
+        ) : (
+          <>
+            <h4 className="font-semibold text-blue-800 mb-2">📧 Configuración de SMTP</h4>
+            
+            <div className="mb-4">
+              <h5 className="font-semibold text-blue-800 mb-2">✅ Usar cPanel (Recomendado si tienes hosting con cPanel)</h5>
+              <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside mb-2">
+                <li><strong>Servidor SMTP:</strong> <code>mail.tu-dominio.com</code> o <code>smtp.tu-dominio.com</code></li>
+                <li><strong>Puerto:</strong> <code>587</code> (TLS) o <code>465</code> (SSL) - Marca "Usar conexión segura"</li>
+                <li><strong>Usuario:</strong> Email completo (ej: <code>noreply@tu-dominio.com</code>)</li>
+                <li><strong>Contraseña:</strong> La contraseña del email creado en cPanel</li>
+                <li><strong>Email Remitente:</strong> El mismo email (ej: <code>noreply@tu-dominio.com</code>)</li>
+              </ul>
+              <p className="text-xs text-blue-600 mt-2">
+                💡 <strong>Ventaja:</strong> No necesitas servicios externos, emails ilimitados desde tu propio dominio.
+              </p>
+            </div>
+
+            <div className="border-t border-blue-300 pt-3 mt-3">
+              <h5 className="font-semibold text-blue-800 mb-2">Otros Servicios:</h5>
+              <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+                <li><strong>Gmail:</strong> smtp.gmail.com:587, usa "Contraseña de aplicación"</li>
+                <li><strong>Outlook:</strong> smtp-mail.outlook.com:587</li>
+                <li><strong>Yahoo:</strong> smtp.mail.yahoo.com:587</li>
+              </ul>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

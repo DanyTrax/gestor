@@ -68,9 +68,10 @@ RUN echo '<VirtualHost *:80>\n\
 # Copiar archivos construidos desde builder
 COPY --from=builder /app/dist /var/www/html
 
-# Copiar upload.php y send-email.php
+# Copiar upload.php, send-email.php y send-zoho.php
 COPY upload.php /var/www/html/
 COPY send-email.php /var/www/html/
+COPY send-zoho.php /var/www/html/
 
 # Copiar composer.json e instalar PHPMailer
 COPY composer.json /var/www/html/

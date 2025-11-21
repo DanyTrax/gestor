@@ -1,0 +1,22 @@
+{
+  "name": "gestor-de-cobros/email-service",
+  "description": "Dependencias PHP para Gestor de Cobros - PHPMailer para envío de emails",
+  "type": "project",
+  "require": {
+    "php": ">=7.4",
+    "phpmailer/phpmailer": "^6.9"
+  },
+  "autoload": {
+    "psr-4": {
+      "PHPMailer\\PHPMailer\\": "vendor/phpmailer/phpmailer/src/"
+    }
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
+
