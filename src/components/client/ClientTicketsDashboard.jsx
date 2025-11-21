@@ -4,6 +4,7 @@ import { collection, onSnapshot, query, orderBy, where, addDoc, Timestamp, doc, 
 import { db, appId } from '../../config/firebase';
 import { TicketIcon, PlusIcon, EyeIcon, ClockIcon, UserIcon, MessageIcon, XIcon } from '../icons';
 import TicketMessagesHistory from '../tickets/TicketMessagesHistory';
+import { sendEmail, loadEmailConfig } from '../../services/emailService';
 
 function ClientTicketsDashboard({ user, isDemo, userProfile }) {
   const { addNotification } = useNotification();
@@ -132,7 +133,95 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
         attachments: []
       };
 
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tickets'), ticketData);
+      const ticketDocRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tickets'), ticketData);
+      const ticketId = ticketDocRef.id;
+      
+      // Enviar notificaciones por email
+      try {
+        await loadEmailConfig();
+        
+        const clientName = userProfile?.fullName || user.email;
+        const ticketNumber = ticketData.ticketNumber;
+        const ticketSubject = ticketData.subject;
+        const ticketDescription = ticketData.description;
+        const ticketDepartment = ticketData.department;
+        const ticketPriority = ticketData.priority;
+        
+        // Email al cliente - Confirmación de creación
+        const clientEmailHtml = `
+          <h2>Ticket Creado Exitosamente</h2>
+          <p>Estimado/a <strong>${clientName}</strong>,</p>
+          <p>Hemos recibido tu ticket de soporte. Nuestro equipo lo revisará y te responderá pronto.</p>
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p><strong>Número de Ticket:</strong> ${ticketNumber}</p>
+            <p><strong>Asunto:</strong> ${ticketSubject}</p>
+            <p><strong>Departamento:</strong> ${ticketDepartment}</p>
+            <p><strong>Prioridad:</strong> ${ticketPriority}</p>
+            <p><strong>Descripción:</strong></p>
+            <p style="white-space: pre-wrap;">${ticketDescription}</p>
+          </div>
+          <p>Puedes hacer seguimiento a tu ticket desde tu panel de cliente.</p>
+          <p>Saludos cordiales,<br>Equipo de Soporte</p>
+        `;
+        
+        await sendEmail({
+          to: user.email,
+          toName: clientName,
+          subject: `Ticket Creado - ${ticketNumber}`,
+          html: clientEmailHtml,
+          text: `Ticket Creado Exitosamente\n\nEstimado/a ${clientName},\n\nHemos recibido tu ticket de soporte. Nuestro equipo lo revisará y te responderá pronto.\n\nNúmero de Ticket: ${ticketNumber}\nAsunto: ${ticketSubject}\nDepartamento: ${ticketDepartment}\nPrioridad: ${ticketPriority}\n\nDescripción:\n${ticketDescription}\n\nPuedes hacer seguimiento a tu ticket desde tu panel de cliente.\n\nSaludos cordiales,\nEquipo de Soporte`,
+          type: 'Notificación',
+          recipientType: 'Cliente',
+          module: 'tickets',
+          event: 'ticket_created',
+          metadata: {
+            ticketId: ticketId,
+            ticketNumber: ticketNumber
+          }
+        });
+        
+        // Email al administrador - Notificación de nuevo ticket
+        const adminEmailHtml = `
+          <h2>Nuevo Ticket Creado</h2>
+          <p>Se ha creado un nuevo ticket de soporte que requiere atención.</p>
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <p><strong>Número de Ticket:</strong> ${ticketNumber}</p>
+            <p><strong>Cliente:</strong> ${clientName} (${user.email})</p>
+            <p><strong>Asunto:</strong> ${ticketSubject}</p>
+            <p><strong>Departamento:</strong> ${ticketDepartment}</p>
+            <p><strong>Prioridad:</strong> ${ticketPriority}</p>
+            <p><strong>Descripción:</strong></p>
+            <p style="white-space: pre-wrap;">${ticketDescription}</p>
+          </div>
+          <p>Por favor, revisa y asigna el ticket desde el panel de administración.</p>
+        `;
+        
+        // Obtener email del administrador desde la configuración
+        const emailConfig = await loadEmailConfig();
+        const adminEmail = emailConfig?.fromEmail || user.email; // Fallback al email del cliente si no hay config
+        
+        await sendEmail({
+          to: adminEmail,
+          toName: emailConfig?.fromName || 'Administrador',
+          subject: `Nuevo Ticket - ${ticketNumber} - ${ticketSubject}`,
+          html: adminEmailHtml,
+          text: `Nuevo Ticket Creado\n\nSe ha creado un nuevo ticket de soporte que requiere atención.\n\nNúmero de Ticket: ${ticketNumber}\nCliente: ${clientName} (${user.email})\nAsunto: ${ticketSubject}\nDepartamento: ${ticketDepartment}\nPrioridad: ${ticketPriority}\n\nDescripción:\n${ticketDescription}\n\nPor favor, revisa y asigna el ticket desde el panel de administración.`,
+          type: 'Notificación',
+          recipientType: 'Administrador',
+          module: 'tickets',
+          event: 'ticket_created_admin',
+          metadata: {
+            ticketId: ticketId,
+            ticketNumber: ticketNumber,
+            clientEmail: user.email,
+            clientName: clientName
+          }
+        });
+      } catch (emailError) {
+        console.error("Error sending ticket notification emails:", emailError);
+        // No fallar la creación del ticket si falla el email
+      }
+      
       addNotification("Ticket creado exitosamente", "success");
       setShowNewTicketModal(false);
       setNewTicket({ subject: '', department: 'Soporte Técnico', priority: 'Media', description: '' });
