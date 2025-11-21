@@ -381,7 +381,7 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
             <p>Por favor, revisa y asigna el ticket desde el panel de administración.</p>
           `;
           
-          await sendEmail({
+          const adminEmailResult = await sendEmail({
             to: adminEmail,
             toName: emailConfig?.fromName || 'Administrador',
             subject: `Nuevo Ticket - ${ticketNumber} - ${ticketSubject}`,
@@ -398,9 +398,14 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
               clientName: clientName
             }
           });
+          console.log('📧 [ADMIN] Resultado email administrador:', adminEmailResult);
+          console.log('✅ [ADMIN] Notificaciones por email completadas');
+        } else {
+          console.log('⚠️ [ADMIN] No se envió email al administrador - no hay email configurado en fromEmail');
         }
       } catch (emailError) {
-        console.error("Error sending ticket notification emails:", emailError);
+        console.error("❌ [ADMIN] Error sending ticket notification emails:", emailError);
+        console.error("❌ [ADMIN] Detalles del error:", emailError.message, emailError.stack);
         // No fallar la creación del ticket si falla el email
       }
       
