@@ -190,7 +190,7 @@ function EmailConfigTab({ isDemo }) {
 
           {/* Configuración según proveedor */}
           {config.provider === 'zoho' ? (
-            /* Configuración Zoho Mail API */
+            // Configuración Zoho Mail API
             <div className="space-y-4 border-t pt-4">
               <h4 className="font-semibold text-gray-800">Configuración Zoho Mail API</h4>
               
@@ -284,7 +284,7 @@ function EmailConfigTab({ isDemo }) {
               </div>
             </div>
           ) : (
-            /* Configuración SMTP (existente) */
+            // Configuración SMTP (existente)
             <div className="space-y-4 border-t pt-4">
               <h4 className="font-semibold text-gray-800">Configuración SMTP</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
