@@ -108,7 +108,10 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
   const handleCreateTicket = async (e) => {
     e.preventDefault();
     
+    console.log('🎫 handleCreateTicket llamado - Iniciando creación de ticket');
+    
     if (isDemo) {
+      console.log('⚠️ Modo demo activado - saltando envío de emails');
       addNotification("Ticket creado (modo demo)", "success");
       setShowNewTicketModal(false);
       setNewTicket({ subject: '', department: 'Soporte Técnico', priority: 'Media', description: '' });
@@ -116,6 +119,7 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
     }
 
     try {
+      console.log('🎫 Creando ticket en Firestore...');
       const ticketData = {
         ...newTicket,
         ticketNumber: `TKT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,

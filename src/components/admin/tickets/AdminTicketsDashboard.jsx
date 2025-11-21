@@ -254,7 +254,10 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
   const handleCreateTicket = async (e) => {
     e.preventDefault();
     
+    console.log('🎫 [ADMIN] handleCreateTicket llamado - Iniciando creación de ticket');
+    
     if (isDemo) {
+      console.log('⚠️ [ADMIN] Modo demo activado - saltando envío de emails');
       const demoTicket = {
         id: `ticket_${Date.now()}`,
         ticketNumber: `TKT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
@@ -283,6 +286,7 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
     }
 
     try {
+      console.log('🎫 [ADMIN] Creando ticket en Firestore...');
       const ticketData = {
         ...newTicket,
         ticketNumber: `TKT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
@@ -299,10 +303,13 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
 
       const ticketDocRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tickets'), ticketData);
       const ticketId = ticketDocRef.id;
+      console.log('✅ [ADMIN] Ticket creado con ID:', ticketId);
       
       // Enviar notificaciones por email
       try {
+        console.log('📧 [ADMIN] Iniciando envío de notificaciones por email para ticket:', ticketId);
         await loadEmailConfig();
+        console.log('✅ [ADMIN] Configuración de email cargada');
         
         const clientName = ticketData.clientName || 'Cliente';
         const clientEmail = ticketData.clientEmail;
@@ -314,6 +321,7 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
         
         // Email al cliente - Confirmación de creación (solo si tiene email)
         if (clientEmail) {
+          console.log('📧 [ADMIN] Enviando email al cliente:', clientEmail);
           const clientEmailHtml = `
             <h2>Ticket Creado Exitosamente</h2>
             <p>Estimado/a <strong>${clientName}</strong>,</p>
@@ -330,7 +338,7 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
             <p>Saludos cordiales,<br>Equipo de Soporte</p>
           `;
           
-          await sendEmail({
+          const clientEmailResult = await sendEmail({
             to: clientEmail,
             toName: clientName,
             subject: `Ticket Creado - ${ticketNumber}`,
@@ -345,13 +353,19 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
               ticketNumber: ticketNumber
             }
           });
+          console.log('📧 [ADMIN] Resultado email cliente:', clientEmailResult);
+        } else {
+          console.log('⚠️ [ADMIN] No se envió email al cliente - no hay email configurado');
         }
         
         // Email al administrador - Notificación de nuevo ticket
         const emailConfig = await loadEmailConfig();
         const adminEmail = emailConfig?.fromEmail;
         
+        console.log('📧 [ADMIN] Email del administrador desde config:', adminEmail);
+        
         if (adminEmail) {
+          console.log('📧 [ADMIN] Enviando email al administrador:', adminEmail);
           const adminEmailHtml = `
             <h2>Nuevo Ticket Creado</h2>
             <p>Se ha creado un nuevo ticket de soporte que requiere atención.</p>
