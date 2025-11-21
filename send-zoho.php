@@ -136,23 +136,28 @@ function sendEmailViaZoho($accessToken, $fromEmail, $fromName, $to, $toName, $su
     $accounts = getZohoAccounts($accessToken);
     
     // Buscar el email en sendMailDetails de cada cuenta (como hace el plugin de WordPress)
-    $accountId = null;
+    $emailFound = false;
     foreach ($accounts as $account) {
         // Cada cuenta tiene sendMailDetails con fromAddress
         $sendMailDetails = $account['sendMailDetails'] ?? [];
         foreach ($sendMailDetails as $mailDetail) {
             $detailFromAddress = $mailDetail['fromAddress'] ?? '';
             if (strcasecmp($detailFromAddress, $fromEmail) === 0) {
-                // Usar el accountId numérico de la cuenta (no el email)
-                $accountId = $account['accountId'] ?? null;
+                $emailFound = true;
                 break 2; // Salir de ambos loops
             }
         }
     }
     
-    // Si no se encontró, usar el accountId del primer elemento (fallback)
-    if (!$accountId && !empty($accounts) && isset($accounts[0]['accountId'])) {
+    // Como el plugin de WordPress, usar siempre el accountId del primer elemento
+    // cuando se encuentra el email en sendMailDetails
+    if ($emailFound && !empty($accounts) && isset($accounts[0]['accountId'])) {
         $accountId = $accounts[0]['accountId'];
+    } elseif (!empty($accounts) && isset($accounts[0]['accountId'])) {
+        // Fallback: usar el primer accountId si no se encontró el email
+        $accountId = $accounts[0]['accountId'];
+    } else {
+        $accountId = null;
     }
     
     // Si aún no hay accountId, lanzar error
