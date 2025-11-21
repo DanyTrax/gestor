@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
-import { collection, onSnapshot, query, orderBy, where, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
 import { MessagesIcon, SearchIcon, FilterIcon, EyeIcon, CheckIcon, XIcon, ClockIcon } from '../../icons';
 import ActionDropdown from '../../common/ActionDropdown';
@@ -150,7 +150,11 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
     setShowMessageModal(true);
   };
 
-  const handleResendMessage = async (message) => {
+  const handleResendMessage = async (message, e) => {
+    if (e) {
+      e.stopPropagation(); // Evitar que el dropdown se cierre antes de ejecutar
+    }
+
     if (isDemo) {
       addNotification("Función no disponible en modo demo", "error");
       return;
@@ -206,6 +210,40 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
       addNotification(`Error al reenviar mensaje: ${error.message}`, "error");
     } finally {
       setResendingMessageId(null);
+    }
+  };
+
+  const handleDeleteMessage = async (message, e) => {
+    if (e) {
+      e.stopPropagation(); // Evitar que el dropdown se cierre antes de ejecutar
+    }
+
+    if (isDemo) {
+      addNotification("Función no disponible en modo demo", "error");
+      return;
+    }
+
+    const recipientEmail = message.recipientEmail || message.to || 'este mensaje';
+    const subject = message.subject || 'Sin asunto';
+    
+    if (!window.confirm(`¿Eliminar permanentemente el mensaje "${subject}" enviado a ${recipientEmail}?\n\nEsta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    try {
+      const messageRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', message.id);
+      await deleteDoc(messageRef);
+      
+      addNotification("Mensaje eliminado exitosamente", "success");
+      
+      // Cerrar el modal si está abierto y es el mensaje eliminado
+      if (showMessageModal && selectedMessage?.id === message.id) {
+        setShowMessageModal(false);
+        setSelectedMessage(null);
+      }
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      addNotification(`Error al eliminar mensaje: ${error.message}`, "error");
     }
   };
 
@@ -472,13 +510,16 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                           ))}
                         </select>
                         <button 
-                          onClick={() => handleResendMessage(message)}
+                          onClick={(e) => handleResendMessage(message, e)}
                           disabled={resendingMessageId === message.id}
                           className="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {resendingMessageId === message.id ? 'Reenviando...' : 'Reenviar'}
                         </button>
-                        <button className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">
+                        <button 
+                          onClick={(e) => handleDeleteMessage(message, e)}
+                          className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                        >
                           Eliminar
                         </button>
                       </ActionDropdown>
@@ -598,13 +639,27 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                   Cerrar
                 </button>
                 {userRole === 'superadmin' && (
-                  <button 
-                    onClick={() => handleResendMessage(selectedMessage)}
-                    disabled={resendingMessageId === selectedMessage.id}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {resendingMessageId === selectedMessage.id ? 'Reenviando...' : 'Reenviar Mensaje'}
-                  </button>
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleResendMessage(selectedMessage, e);
+                      }}
+                      disabled={resendingMessageId === selectedMessage.id}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {resendingMessageId === selectedMessage.id ? 'Reenviando...' : 'Reenviar Mensaje'}
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteMessage(selectedMessage, e);
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                    >
+                      Eliminar Mensaje
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
