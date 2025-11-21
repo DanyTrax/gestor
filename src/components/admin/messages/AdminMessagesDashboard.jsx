@@ -6,6 +6,7 @@ import { MessagesIcon, SearchIcon, FilterIcon, EyeIcon, CheckIcon, XIcon, ClockI
 import ActionDropdown from '../../common/ActionDropdown';
 import EmailConfigTab from './EmailConfigTab';
 import NotificationSettingsTab from './NotificationSettingsTab';
+import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 
 function AdminMessagesDashboard({ isDemo, userRole }) {
   const [activeTab, setActiveTab] = useState('history');
@@ -18,6 +19,7 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
   const [loading, setLoading] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [showMessageModal, setShowMessageModal] = useState(false);
+  const [resendingMessageId, setResendingMessageId] = useState(null);
 
   const messageStatusOptions = ['Todos', 'Enviado', 'Entregado', 'Simulado', 'Leído', 'Fallido', 'Cancelado', 'Pendiente'];
   const messageTypeOptions = ['Todos', 'Aprobación', 'Rechazo', 'Recordatorio', 'Notificación', 'Activación', 'Sistema'];
@@ -146,6 +148,65 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
   const handleViewMessage = (message) => {
     setSelectedMessage(message);
     setShowMessageModal(true);
+  };
+
+  const handleResendMessage = async (message) => {
+    if (isDemo) {
+      addNotification("Función no disponible en modo demo", "error");
+      return;
+    }
+
+    if (resendingMessageId === message.id) {
+      return; // Ya se está reenviando
+    }
+
+    setResendingMessageId(message.id);
+
+    try {
+      // Cargar configuración de email
+      await loadEmailConfig();
+
+      // Extraer datos del mensaje para reenviar
+      const recipientEmail = message.recipientEmail || message.to;
+      const recipientName = message.recipientName || '';
+      const subject = message.subject || 'Sin asunto';
+      const messageContent = message.message || message.content || '';
+      
+      // Determinar si el contenido es HTML o texto plano
+      const isHtml = messageContent.includes('<') && messageContent.includes('>');
+      const html = isHtml ? messageContent : messageContent.replace(/\n/g, '<br>');
+      const text = isHtml ? messageContent.replace(/<[^>]*>/g, '') : messageContent;
+
+      // Reenviar el email
+      await sendEmail({
+        to: recipientEmail,
+        toName: recipientName,
+        subject: `[Reenvío] ${subject}`,
+        html: html,
+        text: text,
+        type: message.type || 'Notificación',
+        recipientType: message.recipientType || 'Cliente',
+        module: message.module || 'system',
+        event: message.event || 'resend',
+        metadata: {
+          originalMessageId: message.id,
+          originalSentAt: message.sentAt,
+          resendAt: new Date().toISOString()
+        }
+      });
+
+      addNotification(`Mensaje reenviado exitosamente a ${recipientEmail}`, "success");
+      
+      // Cerrar el modal si está abierto
+      if (showMessageModal && selectedMessage?.id === message.id) {
+        setShowMessageModal(false);
+      }
+    } catch (error) {
+      console.error("Error resending message:", error);
+      addNotification(`Error al reenviar mensaje: ${error.message}`, "error");
+    } finally {
+      setResendingMessageId(null);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -410,8 +471,12 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                             <option key={option} value={option}>{option}</option>
                           ))}
                         </select>
-                        <button className="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">
-                          Reenviar
+                        <button 
+                          onClick={() => handleResendMessage(message)}
+                          disabled={resendingMessageId === message.id}
+                          className="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {resendingMessageId === message.id ? 'Reenviando...' : 'Reenviar'}
                         </button>
                         <button className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">
                           Eliminar
@@ -533,8 +598,12 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
                   Cerrar
                 </button>
                 {userRole === 'superadmin' && (
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                    Reenviar Mensaje
+                  <button 
+                    onClick={() => handleResendMessage(selectedMessage)}
+                    disabled={resendingMessageId === selectedMessage.id}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {resendingMessageId === selectedMessage.id ? 'Reenviando...' : 'Reenviar Mensaje'}
                   </button>
                 )}
               </div>
