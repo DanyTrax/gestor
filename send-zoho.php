@@ -145,12 +145,15 @@ function sendEmailViaZoho($accessToken, $fromEmail, $fromName, $to, $toName, $su
     
     // Si no se encontró en las cuentas, usar el email directamente
     if (!$accountId) {
-        $accountId = urlencode($fromEmail);
+        $accountId = $fromEmail;
     }
+    
+    // Asegurar que el accountId esté URL-encoded correctamente
+    $accountIdEncoded = rawurlencode($accountId);
     
     // Endpoint de Zoho Mail API para enviar emails
     // Formato: https://mail.zoho.com/api/accounts/{accountId}/messages
-    $zohoApiUrl = "https://mail.zoho.com/api/accounts/$accountId/messages";
+    $zohoApiUrl = "https://mail.zoho.com/api/accounts/" . $accountIdEncoded . "/messages";
     
     // Preparar el cuerpo del email según la documentación de Zoho Mail API
     $emailData = [
@@ -201,8 +204,9 @@ function sendEmailViaZoho($accessToken, $fromEmail, $fromName, $to, $toName, $su
         } elseif ($httpCode === 404) {
             // Error 404 puede ser por varias razones
             $detailedError = "Cuenta de email no encontrada en Zoho (404). ";
-            $detailedError .= "Endpoint usado: $zohoApiUrl\n";
+            $detailedError .= "Endpoint usado: " . htmlspecialchars($zohoApiUrl, ENT_QUOTES, 'UTF-8') . "\n";
             $detailedError .= "Email remitente: $fromEmail\n";
+            $detailedError .= "Account ID usado: " . ($accountIdEncoded ?? $accountId ?? 'N/A') . "\n";
             $detailedError .= "Verifica que:\n";
             $detailedError .= "1. El email '$fromEmail' esté configurado en Zoho Mail\n";
             $detailedError .= "2. El email esté habilitado para API en Zoho Mail\n";
