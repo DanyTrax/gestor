@@ -8,7 +8,7 @@ import EmailConfigTab from './EmailConfigTab';
 import NotificationSettingsTab from './NotificationSettingsTab';
 import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 
-function AdminMessagesDashboard({ isDemo, userRole }) {
+function AdminMessagesDashboard({ userRole }) {
   const [activeTab, setActiveTab] = useState('history');
   const { addNotification } = useNotification();
   const [messages, setMessages] = useState([]);
@@ -26,85 +26,6 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
   const recipientTypeOptions = ['Todos', 'Cliente', 'Administrador', 'Sistema'];
 
   useEffect(() => {
-    if (isDemo) {
-      setMessages([
-        {
-          id: 'msg1',
-          type: 'Aprobación',
-          recipientType: 'Cliente',
-          recipientName: 'Juan Pérez',
-          recipientEmail: 'juan@ejemplo.com',
-          subject: 'Pago Aprobado - SRV-241017-123456',
-          message: 'Estimado/a Juan Pérez,\n\nSu pago por el servicio SRV-241017-123456 ha sido aprobado exitosamente.\n\nDetalles del pago:\n- Servicio: Hosting Básico\n- Monto: $50,000 COP\n- Fecha: 17/10/2024\n- Método: Bold\n\nSu servicio está ahora activo. Gracias por su pago.\n\nSaludos cordiales,\nEquipo de Soporte',
-          status: 'Entregado',
-          sentAt: { seconds: Date.now() / 1000 - 3600 },
-          deliveredAt: { seconds: Date.now() / 1000 - 3000 },
-          readAt: { seconds: Date.now() / 1000 - 1800 },
-          templateId: 'approval_1',
-          paymentId: 'pay1',
-          serviceId: 'srv1',
-          sentBy: 'admin@empresa.com',
-          channel: 'email'
-        },
-        {
-          id: 'msg2',
-          type: 'Recordatorio',
-          recipientType: 'Cliente',
-          recipientName: 'María García',
-          recipientEmail: 'maria@ejemplo.com',
-          subject: 'Recordatorio de Vencimiento - SRV-241017-789012',
-          message: 'Hola María García,\n\nTe recordamos que tu servicio SRV-241017-789012 vence en 3 días.\n\nPara evitar interrupciones, por favor realiza el pago correspondiente.\n\nGracias por tu atención.\n\nEquipo de Soporte',
-          status: 'Enviado',
-          sentAt: { seconds: Date.now() / 1000 - 7200 },
-          deliveredAt: null,
-          readAt: null,
-          templateId: 'reminder_1',
-          serviceId: 'srv2',
-          sentBy: 'sistema@empresa.com',
-          channel: 'email'
-        },
-        {
-          id: 'msg3',
-          type: 'Rechazo',
-          recipientType: 'Cliente',
-          recipientName: 'Carlos López',
-          recipientEmail: 'carlos@ejemplo.com',
-          subject: 'Pago Rechazado - SRV-241017-345678',
-          message: 'Estimado/a Carlos López,\n\nLamentamos informarle que su pago por el servicio SRV-241017-345678 no pudo ser procesado.\n\nPor favor, verifique los datos de su método de pago e intente nuevamente.\n\nSi necesita ayuda, contacte a nuestro equipo de soporte.\n\nSaludos cordiales,\nEquipo de Soporte',
-          status: 'Fallido',
-          sentAt: { seconds: Date.now() / 1000 - 10800 },
-          deliveredAt: null,
-          readAt: null,
-          templateId: 'rejection_1',
-          paymentId: 'pay3',
-          serviceId: 'srv3',
-          sentBy: 'admin@empresa.com',
-          channel: 'email',
-          errorMessage: 'Error de conexión con el servidor de email'
-        },
-        {
-          id: 'msg4',
-          type: 'Notificación',
-          recipientType: 'Administrador',
-          recipientName: 'Admin Principal',
-          recipientEmail: 'admin@empresa.com',
-          subject: 'Nuevo Pago Recibido',
-          message: 'Se ha recibido un nuevo pago:\n\n- Cliente: Ana Martínez\n- Servicio: SRV-241017-456789\n- Monto: $75,000 COP\n- Método: Transferencia Bancaria\n\nPor favor, verifica y aprueba el pago si es necesario.',
-          status: 'Leído',
-          sentAt: { seconds: Date.now() / 1000 - 14400 },
-          deliveredAt: { seconds: Date.now() / 1000 - 14300 },
-          readAt: { seconds: Date.now() / 1000 - 14200 },
-          templateId: 'admin_payment_notification',
-          paymentId: 'pay4',
-          serviceId: 'srv4',
-          sentBy: 'sistema@empresa.com',
-          channel: 'email'
-        }
-      ]);
-      setLoading(false);
-      return;
-    }
-
     const messagesQuery = query(
       collection(db, 'artifacts', appId, 'public', 'data', 'messages'),
       orderBy('sentAt', 'desc')
@@ -124,14 +45,9 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
     });
 
     return () => unsubscribe();
-  }, [isDemo, addNotification]);
+  }, [addNotification]);
 
   const handleStatusChange = async (messageId, newStatus) => {
-    if (isDemo) {
-      addNotification("Función no disponible en modo demo", "error");
-      return;
-    }
-
     try {
       const messageRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', messageId);
       await updateDoc(messageRef, { 
@@ -153,11 +69,6 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
   const handleResendMessage = async (message, e) => {
     if (e) {
       e.stopPropagation(); // Evitar que el dropdown se cierre antes de ejecutar
-    }
-
-    if (isDemo) {
-      addNotification("Función no disponible en modo demo", "error");
-      return;
     }
 
     if (resendingMessageId === message.id) {
@@ -216,11 +127,6 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
   const handleDeleteMessage = async (message, e) => {
     if (e) {
       e.stopPropagation(); // Evitar que el dropdown se cierre antes de ejecutar
-    }
-
-    if (isDemo) {
-      addNotification("Función no disponible en modo demo", "error");
-      return;
     }
 
     const recipientEmail = message.recipientEmail || message.to || 'este mensaje';
@@ -716,8 +622,8 @@ function AdminMessagesDashboard({ isDemo, userRole }) {
 
       {/* Contenido de pestañas */}
       {activeTab === 'history' && <MessagesHistoryTab />}
-      {activeTab === 'email' && <EmailConfigTab isDemo={isDemo} />}
-      {activeTab === 'notifications' && <NotificationSettingsTab isDemo={isDemo} />}
+      {activeTab === 'email' && <EmailConfigTab />}
+      {activeTab === 'notifications' && <NotificationSettingsTab />}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
 import { CreditCardIcon, CheckIcon, XIcon } from '../../icons';
 
-function PaymentMessageModal({ isOpen, onClose, payment, onSend, isDemo }) {
+function PaymentMessageModal({ isOpen, onClose, payment, onSend }) {
   const { addNotification } = useNotification();
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
@@ -103,11 +103,6 @@ Para más información, visite: {paymentMethodsUrl}
   };
 
   useEffect(() => {
-    if (isDemo) {
-      setTemplates([]);
-      return;
-    }
-
     // Cargar plantillas personalizadas desde Firestore
     const templatesQuery = query(
       collection(db, 'artifacts', appId, 'public', 'data', 'templates'),
@@ -123,7 +118,7 @@ Para más información, visite: {paymentMethodsUrl}
     });
 
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   const handleTemplateSelect = (templateId) => {
     setSelectedTemplate(templateId);

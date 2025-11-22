@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ServicesIcon, UsersIcon, TemplatesIcon, MessagesIcon, TicketIcon, BuildingIcon, CreditCardIcon } from '../icons';
 import AdminServicesDashboard from '../admin/services/AdminServicesDashboard';
 import AdminUsersDashboard from '../admin/users/AdminUsersDashboard';
@@ -9,19 +9,55 @@ import AdminMessagesDashboard from '../admin/messages/AdminMessagesDashboard';
 import AdminTicketsDashboard from '../admin/tickets/AdminTicketsDashboard';
 import AdminSettingsDashboard from '../admin/settings/AdminSettingsDashboard';
 
-function AdminDashboard({ user, isDemo, setIsDemoMode, userRole, companySettings, onLogout }) {
+function AdminDashboard({ user, userRole, companySettings, onLogout }) {
   const [activeTab, setActiveTab] = useState('services');
+
+  // Sincronizar hash (#services, #users, #templates, etc.) con pestañas
+  useEffect(() => {
+    const validTabs = ['services', 'users', 'templates', 'messages', 'payments', 'tickets', 'payment-config', 'settings'];
+    
+    const applyHash = () => {
+      const hash = (window.location.hash || '').replace('#', '');
+      if (validTabs.includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+    
+    // Aplicar hash inicial si existe
+    const initialHash = (window.location.hash || '').replace('#', '');
+    if (validTabs.includes(initialHash)) {
+      setActiveTab(initialHash);
+    } else if (!window.location.hash) {
+      // Si no hay hash, establecer el por defecto sin disparar hashchange
+      window.history.replaceState(null, '', '#services');
+      setActiveTab('services');
+    }
+    
+    // Escuchar cambios en el hash
+    window.addEventListener('hashchange', applyHash);
+    
+    return () => window.removeEventListener('hashchange', applyHash);
+  }, []); // Solo ejecutar una vez al montar
+
+  // Actualizar URL cuando cambia la pestaña activa (solo si el hash es diferente)
+  useEffect(() => {
+    const currentHash = (window.location.hash || '').replace('#', '');
+    if (activeTab && currentHash !== activeTab) {
+      // Usar replaceState para evitar agregar entrada al historial
+      window.history.replaceState(null, '', `#${activeTab}`);
+    }
+  }, [activeTab]);
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'users': return <AdminUsersDashboard isDemo={isDemo} userRole={userRole} />;
-      case 'templates': return <AdminTemplatesDashboard isDemo={isDemo} />;
-      case 'messages': return <AdminMessagesDashboard isDemo={isDemo} userRole={userRole} />;
-      case 'tickets': return <AdminTicketsDashboard isDemo={isDemo} userRole={userRole} />;
-      case 'payments': return <AdminPaymentsDashboard isDemo={isDemo} userRole={userRole} />;
-      case 'payment-config': return <PaymentConfigDashboard isDemo={isDemo} />;
-      case 'settings': return <AdminSettingsDashboard isDemo={isDemo} setIsDemoMode={setIsDemoMode} onLogout={onLogout} />;
-      case 'services': default: return <AdminServicesDashboard isDemo={isDemo} userRole={userRole} />;
+      case 'users': return <AdminUsersDashboard userRole={userRole} companySettings={companySettings} />;
+      case 'templates': return <AdminTemplatesDashboard />;
+      case 'messages': return <AdminMessagesDashboard userRole={userRole} />;
+      case 'tickets': return <AdminTicketsDashboard userRole={userRole} />;
+      case 'payments': return <AdminPaymentsDashboard userRole={userRole} />;
+      case 'payment-config': return <PaymentConfigDashboard />;
+      case 'settings': return <AdminSettingsDashboard onLogout={onLogout} />;
+      case 'services': default: return <AdminServicesDashboard userRole={userRole} />;
     }
   };
 

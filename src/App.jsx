@@ -6,35 +6,26 @@ import { diagnosticFirebaseStructure, findOldestUser } from './utils/firebaseDia
 import { checkUsersInAuth } from './utils/authCheck';
 import { useNotification, NotificationProvider } from './contexts/NotificationContext';
 import { useInactivityTimeout } from './hooks/useInactivityTimeout';
+import { setupConsoleErrorFilter } from './utils/filterConsoleErrors';
 import { LogoutIcon } from './components/icons';
 import AdminDashboard from './components/dashboard/AdminDashboard';
 import ClientDashboard from './components/dashboard/ClientDashboard';
 import AuthPage from './components/auth/AuthPage';
-import TestModeLogin from './components/auth/TestModeLogin';
 import PasswordChangeModal from './components/auth/PasswordChangeModal';
 import CompleteProfileModal from './components/auth/CompleteProfileModal';
 import InitialSetup from './components/setup/InitialSetup';
-import FirebaseDebugger from './components/debug/FirebaseDebugger';
+
+// Filtrar errores benignos de extensiones del navegador
+setupConsoleErrorFilter();
 
 function AppContent() {
   const { addNotification } = useNotification();
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isDemoMode, setIsDemoMode] = useState(() => {
-    // Cargar el estado del modo demo desde localStorage
-    const savedDemoMode = localStorage.getItem('isDemoMode');
-    return savedDemoMode === 'true';
-  });
   const [companySettings, setCompanySettings] = useState({ companyName: 'Gestor de Cobros' });
   const [showInitialSetup, setShowInitialSetup] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
-  const [showDebugger, setShowDebugger] = useState(false);
-
-  // Sincronizar el estado del modo demo con localStorage
-  useEffect(() => {
-    localStorage.setItem('isDemoMode', isDemoMode.toString());
-  }, [isDemoMode]);
 
   // Función para verificar si el sistema ya está configurado
   const checkSystemConfigured = async () => {
@@ -86,7 +77,6 @@ function AppContent() {
           const settings = settingsDoc.data();
           console.log('📋 Configuración:', settings);
           setCompanySettings(settings);
-          setIsDemoMode(settings.isDemoMode || false);
           setIsConfigured(true);
           setShowInitialSetup(false);
           console.log('✅ Sistema configurado con configuración existente');
@@ -99,7 +89,7 @@ function AppContent() {
         
         if (isConfigured) {
           console.log('✅ Sistema ya configurado, saltando setup inicial');
-          setCompanySettings({ companyName: 'Gestor de Cobros', isDemoMode: false });
+          setCompanySettings({ companyName: 'Gestor de Cobros' });
           setIsConfigured(true);
           setShowInitialSetup(false);
         } else {
@@ -118,7 +108,7 @@ function AppContent() {
         
         // En caso de cualquier error, asumir que está configurado
         console.log('⚠️ Error en verificación, asumiendo que el sistema está configurado');
-        setCompanySettings({ companyName: 'Gestor de Cobros', isDemoMode: false });
+        setCompanySettings({ companyName: 'Gestor de Cobros' });
         setIsConfigured(true);
         setShowInitialSetup(false);
       }
@@ -129,13 +119,6 @@ function AppContent() {
 
   useEffect(() => {
     if (!isConfigured) return;
-
-    if (isDemoMode) {
-      setUser({ email: 'superadmin@demo.com', uid: 'demouser' });
-      setUserProfile({ role: 'superadmin' });
-      setLoading(false);
-      return;
-    }
 
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
@@ -185,7 +168,7 @@ function AppContent() {
     return () => {
       unsubscribeAuth();
     };
-  }, [isConfigured, isDemoMode]);
+  }, [isConfigured]);
 
   const handlePasswordSave = async (newPassword) => {
     const currentUser = auth.currentUser;
@@ -202,19 +185,13 @@ function AppContent() {
   };
 
   const handleLogout = () => {
-    if (isDemoMode) {
-      // En modo demo, solo cerrar la sesión simulada, mantener el modo demo activo
-      setUser(null);
-      setUserProfile(null);
-    } else {
-      signOut(auth);
-    }
+    signOut(auth);
   };
 
   // Cerrar sesión por inactividad
   // Obtener el timeout desde companySettings (default: 10 minutos)
   const inactivityTimeoutMinutes = companySettings?.inactivityTimeoutMinutes || 10;
-  const isUserLoggedIn = !!(user && !isDemoMode);
+  const isUserLoggedIn = !!user;
   
   useInactivityTimeout(
     () => {
@@ -225,13 +202,8 @@ function AppContent() {
       }, 1000); // Esperar 1 segundo para que se vea la notificación
     },
     inactivityTimeoutMinutes,
-    isUserLoggedIn // Solo activo cuando hay usuario autenticado (no en demo)
+    isUserLoggedIn
   );
-
-  const handleTestModeLogin = (user, role) => {
-    setUser(user);
-    setUserProfile({ role, status: 'active' });
-  };
 
 
   const handleInitialSetupComplete = () => {
@@ -245,16 +217,9 @@ function AppContent() {
     return <InitialSetup onComplete={handleInitialSetupComplete} />;
   }
 
-  if (showDebugger) {
-    return <FirebaseDebugger onClose={() => setShowDebugger(false)} />;
-  }
-
   if (loading) return <div className="flex items-center justify-center min-h-screen">Cargando...</div>;
   
-  const effectiveUser = isDemoMode ? { email: 'superadmin@demo.com', uid: 'demouser' } : user;
-  const effectiveRole = isDemoMode ? 'superadmin' : userProfile?.role;
-  
-  if (userProfile?.requiresPasswordChange && !isDemoMode) {
+  if (userProfile?.requiresPasswordChange) {
     return <PasswordChangeModal isOpen={true} onSave={handlePasswordSave} />
   }
 
@@ -264,9 +229,9 @@ function AppContent() {
   const isActivationLink = activationUid && activationUid === user?.uid;
 
   // Mostrar modal de completar perfil si:
-  // 1. Es cliente y no tiene perfil completo Y no es demo mode
+  // 1. Es cliente y no tiene perfil completo
   // 2. O si viene de un link de activación (incluso si ya tiene perfil completo)
-  if (userProfile?.role === 'client' && !isDemoMode && 
+  if (userProfile?.role === 'client' && 
       ((!userProfile?.isProfileComplete && userProfile?.requiresPasswordChange === false) || isActivationLink)) {
     return <CompleteProfileModal isOpen={true} onComplete={() => {
       // Actualizar el perfil local sin recargar la página
@@ -280,7 +245,7 @@ function AppContent() {
 
   return (
     <div className="bg-gray-50 min-h-screen font-sans text-gray-800">
-      {effectiveUser ? (
+      {user ? (
         <>
           <header className="bg-white shadow-md">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -290,54 +255,21 @@ function AppContent() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{companySettings.companyName}</h1>
               )}
               <div className="flex items-center gap-4">
-                 <span className="text-sm text-gray-600 hidden sm:block">{effectiveUser.email}</span>
+                 <span className="text-sm text-gray-600 hidden sm:block">{user.email}</span>
                  <button onClick={handleLogout} className="text-gray-500 hover:text-red-600"><LogoutIcon /></button>
               </div>
             </div>
           </header>
-          {isDemoMode && <div className="bg-yellow-400 text-center p-2 text-sm font-semibold">MODO DE PRUEBA ACTIVO</div>}
-          {effectiveRole === 'superadmin' || effectiveRole === 'admin' ? 
-            <AdminDashboard user={effectiveUser} isDemo={isDemoMode} setIsDemoMode={setIsDemoMode} userRole={effectiveRole} companySettings={companySettings} onLogout={handleLogout} /> : 
-            <ClientDashboard user={effectiveUser} isDemo={isDemoMode} userProfile={userProfile} />
+          {userProfile?.role === 'superadmin' || userProfile?.role === 'admin' ? 
+            <AdminDashboard user={user} userRole={userProfile?.role} companySettings={companySettings} onLogout={handleLogout} /> : 
+            <ClientDashboard user={user} userProfile={userProfile} />
           }
         </>
       ) : (
         <div className="flex flex-col min-h-screen">
-          {isDemoMode && (
-            <div className="bg-yellow-400 text-center p-3 text-sm font-semibold">
-              🟡 MODO DEMO ACTIVO - Usa los botones de prueba para acceder
-            </div>
-          )}
           <div className="flex-grow">
-            {isDemoMode ? (
-              <TestModeLogin companySettings={companySettings} onLogin={handleTestModeLogin} />
-            ) : (
-              <AuthPage companySettings={companySettings} />
-            )}
+            <AuthPage companySettings={companySettings} />
           </div>
-          {/* Mostrar botones de demo y debug solo si está habilitado desde la configuración de empresa */}
-          {(companySettings.isDemoMode || companySettings.allowDemoMode) && (
-            <div className="fixed bottom-4 right-4 flex flex-col gap-2">
-              <button 
-                onClick={() => setIsDemoMode(!isDemoMode)}
-                className={`px-4 py-2 rounded-lg shadow-lg text-sm font-medium transition-colors ${
-                  isDemoMode 
-                    ? 'bg-green-600 text-white hover:bg-green-700' 
-                    : 'bg-yellow-600 text-white hover:bg-yellow-700'
-                }`}
-                title={isDemoMode ? "Cambiar a modo Live" : "Cambiar a modo Demo"}
-              >
-                {isDemoMode ? '🟢 Live' : '🟡 Demo'}
-              </button>
-              <button 
-                onClick={() => setShowDebugger(true)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg shadow-lg hover:bg-red-700 text-sm"
-                title="Diagnóstico de Firebase"
-              >
-                🔧 Debug
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../contexts/NotificationContext';
-import { collection, onSnapshot, query, orderBy, where, addDoc, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, addDoc, Timestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db, appId } from '../../config/firebase';
 import { TicketIcon, PlusIcon, EyeIcon, ClockIcon, UserIcon, MessageIcon, XIcon } from '../icons';
 import TicketMessagesHistory from '../tickets/TicketMessagesHistory';
 import { sendEmail, loadEmailConfig } from '../../services/emailService';
 
-function ClientTicketsDashboard({ user, isDemo, userProfile }) {
+function ClientTicketsDashboard({ user, userProfile }) {
   const { addNotification } = useNotification();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,53 +24,6 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
   const priorityOptions = ['Baja', 'Media', 'Alta', 'Crítica'];
 
   useEffect(() => {
-    if (isDemo) {
-      setTickets([
-        {
-          id: 'ticket1',
-          ticketNumber: 'TKT-2024-001',
-          subject: 'Problema con el acceso al panel de cliente',
-          description: 'No puedo acceder a mi panel de cliente desde ayer. Me aparece un error 500.',
-          status: 'Abierto',
-          priority: 'Alta',
-          department: 'Soporte Técnico',
-          clientId: user?.uid || 'demo',
-          clientName: userProfile?.fullName || 'Usuario Demo',
-          clientEmail: user?.email || 'demo@ejemplo.com',
-          assignedTo: null,
-          assignedToName: null,
-          createdAt: { seconds: Date.now() / 1000 - 3600 },
-          updatedAt: { seconds: Date.now() / 1000 - 3600 },
-          lastReplyAt: { seconds: Date.now() / 1000 - 3600 },
-          lastReplyBy: 'Cliente',
-          replyCount: 0,
-          attachments: []
-        },
-        {
-          id: 'ticket2',
-          ticketNumber: 'TKT-2024-002',
-          subject: 'Consulta sobre facturación',
-          description: 'Necesito una copia de mi factura del mes pasado para contabilidad.',
-          status: 'Respondido',
-          priority: 'Media',
-          department: 'Facturación',
-          clientId: user?.uid || 'demo',
-          clientName: userProfile?.fullName || 'Usuario Demo',
-          clientEmail: user?.email || 'demo@ejemplo.com',
-          assignedTo: 'admin1',
-          assignedToName: 'Admin Principal',
-          createdAt: { seconds: Date.now() / 1000 - 7200 },
-          updatedAt: { seconds: Date.now() / 1000 - 1800 },
-          lastReplyAt: { seconds: Date.now() / 1000 - 1800 },
-          lastReplyBy: 'Admin Principal',
-          replyCount: 2,
-          attachments: ['factura_enero.pdf']
-        }
-      ]);
-      setLoading(false);
-      return;
-    }
-
     if (!user?.uid) {
       setLoading(false);
       return;
@@ -103,21 +56,13 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
     });
 
     return () => unsubscribe();
-  }, [user?.uid, isDemo, addNotification, userProfile]);
+  }, [user?.uid, addNotification, userProfile]);
 
   const handleCreateTicket = async (e) => {
     e.preventDefault();
     
     console.log('🎫 handleCreateTicket llamado - Iniciando creación de ticket');
     
-    if (isDemo) {
-      console.log('⚠️ Modo demo activado - saltando envío de emails');
-      addNotification("Ticket creado (modo demo)", "success");
-      setShowNewTicketModal(false);
-      setNewTicket({ subject: '', department: 'Soporte Técnico', priority: 'Media', description: '' });
-      return;
-    }
-
     try {
       console.log('🎫 Creando ticket en Firestore...');
       const ticketData = {
@@ -249,22 +194,105 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
   };
 
   const handleCloseTicket = async (ticketId) => {
-    if (isDemo) {
-      setTickets(prev => prev.map(ticket => 
-        ticket.id === ticketId 
-          ? { ...ticket, status: 'Cerrado', updatedAt: { seconds: Date.now() / 1000 } }
-          : ticket
-      ));
-      addNotification("Ticket cerrado (modo demo)", "success");
-      return;
-    }
-
     try {
+      // Obtener el ticket actual antes de actualizarlo
       const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+      const ticketDoc = await getDoc(ticketRef);
+      if (!ticketDoc.exists()) {
+        addNotification("Ticket no encontrado", "error");
+        return;
+      }
+      
+      const ticket = { id: ticketDoc.id, ...ticketDoc.data() };
+      
+      // Actualizar el estado a Cerrado
       await updateDoc(ticketRef, {
         status: 'Cerrado',
         updatedAt: Timestamp.now()
       });
+      
+      // Enviar notificaciones por email
+      try {
+        console.log('📧 [CLIENT] Iniciando envío de notificaciones por cierre de ticket');
+        await loadEmailConfig();
+        
+        const ticketNumber = ticket.ticketNumber;
+        const ticketSubject = ticket.subject;
+        const clientName = userProfile?.fullName || user.email;
+        const emailConfig = await loadEmailConfig();
+        const adminEmail = emailConfig?.fromEmail;
+        
+        // Email al cliente - Confirmación de cierre
+        console.log('📧 [CLIENT] Enviando email al cliente por cierre:', user.email);
+        const clientEmailHtml = `
+          <h2>Ticket ${ticketNumber} Cerrado</h2>
+          <p>Estimado/a <strong>${clientName}</strong>,</p>
+          <p>Has cerrado tu ticket de soporte. Si necesitas ayuda adicional, puedes crear un nuevo ticket.</p>
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p><strong>Número de Ticket:</strong> ${ticketNumber}</p>
+            <p><strong>Asunto:</strong> ${ticketSubject}</p>
+            <p><strong>Estado:</strong> Cerrado</p>
+          </div>
+          <p>Gracias por usar nuestro servicio de soporte.</p>
+          <p>Saludos cordiales,<br>Equipo de Soporte</p>
+        `;
+        
+        await sendEmail({
+          to: user.email,
+          toName: clientName,
+          subject: `Ticket ${ticketNumber} - Cerrado`,
+          html: clientEmailHtml,
+          text: `Ticket ${ticketNumber} Cerrado\n\nEstimado/a ${clientName},\n\nHas cerrado tu ticket de soporte. Si necesitas ayuda adicional, puedes crear un nuevo ticket.\n\nNúmero de Ticket: ${ticketNumber}\nAsunto: ${ticketSubject}\nEstado: Cerrado\n\nGracias por usar nuestro servicio de soporte.\n\nSaludos cordiales,\nEquipo de Soporte`,
+          type: 'Notificación',
+          recipientType: 'Cliente',
+          module: 'tickets',
+          event: 'ticketResolved',
+          metadata: {
+            ticketId: ticketId,
+            ticketNumber: ticketNumber,
+            action: 'closed_by_client'
+          }
+        });
+        
+        // Email al administrador - Notificación de cierre por cliente
+        if (adminEmail) {
+          console.log('📧 [CLIENT] Enviando email al administrador por cierre:', adminEmail);
+          const adminEmailHtml = `
+            <h2>Ticket ${ticketNumber} Cerrado por Cliente</h2>
+            <p>Un cliente ha cerrado su ticket de soporte.</p>
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+              <p><strong>Número de Ticket:</strong> ${ticketNumber}</p>
+              <p><strong>Cliente:</strong> ${clientName} (${user.email})</p>
+              <p><strong>Asunto:</strong> ${ticketSubject}</p>
+              <p><strong>Estado:</strong> Cerrado</p>
+            </div>
+          `;
+          
+          await sendEmail({
+            to: adminEmail,
+            toName: emailConfig?.fromName || 'Administrador',
+            subject: `Ticket ${ticketNumber} - Cerrado por Cliente`,
+            html: adminEmailHtml,
+            text: `Ticket ${ticketNumber} Cerrado por Cliente\n\nUn cliente ha cerrado su ticket de soporte.\n\nNúmero de Ticket: ${ticketNumber}\nCliente: ${clientName} (${user.email})\nAsunto: ${ticketSubject}\nEstado: Cerrado`,
+            type: 'Notificación',
+            recipientType: 'Administrador',
+            module: 'tickets',
+            event: 'ticketUpdate',
+            metadata: {
+              ticketId: ticketId,
+              ticketNumber: ticketNumber,
+              action: 'closed_by_client',
+              clientEmail: user.email
+            }
+          });
+        }
+        
+        console.log('✅ [CLIENT] Notificaciones por cierre completadas');
+      } catch (emailError) {
+        console.error("❌ [CLIENT] Error sending close ticket notification emails:", emailError);
+        // No fallar el cierre si falla el email
+      }
+      
       addNotification("Ticket cerrado exitosamente", "success");
     } catch (error) {
       console.error("Error closing ticket:", error);
@@ -659,7 +687,6 @@ function ClientTicketsDashboard({ user, isDemo, userProfile }) {
                 <div className="border border-gray-200 rounded-md p-4">
                   <TicketMessagesHistory 
                     ticketId={selectedTicket.id} 
-                    isDemo={isDemo} 
                     userRole="client"
                     currentUser={user}
                   />

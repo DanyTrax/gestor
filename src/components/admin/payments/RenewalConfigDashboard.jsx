@@ -4,7 +4,7 @@ import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
 import { CreditCardIcon, SettingsIcon, CalendarIcon, PercentIcon } from '../../icons';
 
-function RenewalConfigDashboard({ isDemo }) {
+function RenewalConfigDashboard() {
   const { addNotification } = useNotification();
   const [config, setConfig] = useState({
     renewalSettings: {
@@ -69,46 +69,6 @@ function RenewalConfigDashboard({ isDemo }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isDemo) {
-      setConfig({
-        renewalSettings: {
-          enabled: true,
-          maxRenewalYears: 3,
-          autoRenewal: true,
-          gracePeriodDays: 7,
-          reminderDays: 3
-        },
-        discounts: {
-          monthly: { enabled: false, discount: 0, description: 'Descuento por pago mensual' },
-          quarterly: { enabled: true, discount: 5, description: 'Descuento por pago trimestral' },
-          semiAnnual: { enabled: true, discount: 10, description: 'Descuento por pago semestral' },
-          annual: { enabled: true, discount: 15, description: 'Descuento por pago anual' },
-          biennial: { enabled: true, discount: 25, description: 'Descuento por pago bienal (2 años)' },
-          triennial: { enabled: true, discount: 35, description: 'Descuento por pago trienal (3 años)' }
-        },
-        taxSettings: {
-          ivaEnabled: true,
-          ivaPercentage: 19,
-          ivaIncluded: false,
-          taxName: 'IVA'
-        },
-        documentSettings: {
-          invoiceName: 'Factura',
-          receiptName: 'Remisión',
-          invoicePrefix: 'FAC',
-          receiptPrefix: 'REM',
-          invoiceNumberFormat: 'FAC-{year}-{month}-{number}',
-          receiptNumberFormat: 'REM-{year}-{month}-{number}'
-        },
-        pricingSettings: {
-          roundToNearest: 100,
-          minimumAmount: 1000,
-          maximumAmount: 10000000
-        }
-      });
-      return;
-    }
-
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'renewalConfig');
     const unsubscribe = onSnapshot(configRef, (doc) => {
       if (doc.exists()) {
@@ -117,7 +77,7 @@ function RenewalConfigDashboard({ isDemo }) {
     });
 
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   const handleConfigChange = (section, field, value) => {
     setConfig(prev => ({
@@ -143,10 +103,6 @@ function RenewalConfigDashboard({ isDemo }) {
   };
 
   const handleSave = async () => {
-    if (isDemo) {
-      addNotification("Configuración guardada (modo demo)", "success");
-      return;
-    }
 
     setLoading(true);
     try {

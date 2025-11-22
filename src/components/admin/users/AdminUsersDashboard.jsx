@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy, addDoc, setDoc, Timestamp, getDocs, where } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 import { auth, db, appId } from '../../../config/firebase';
 import { PlusIcon, SearchIcon } from '../../icons';
 import ActionDropdown from '../../common/ActionDropdown';
@@ -9,7 +10,7 @@ import UserModal from './UserModal';
 import CreateUserModal from './CreateUserModal';
 import UserActivationModal from './UserActivationModal';
 
-function AdminUsersDashboard({ isDemo, userRole }) {
+function AdminUsersDashboard({ userRole, companySettings }) {
   const { addNotification } = useNotification();
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,36 +21,20 @@ function AdminUsersDashboard({ isDemo, userRole }) {
   const [activatingUser, setActivatingUser] = useState(null);
 
   useEffect(() => {
-    if (isDemo) {
-      setUsers([
-        { id: 'u1', email: 'superadmin@demo.com', role: 'superadmin', status: 'active', fullName: 'Super Admin', identification: '123' },
-        { id: 'u2', email: 'admin@demo.com', role: 'admin', status: 'active', fullName: 'Admin User', identification: '456' },
-        { id: 'u3', email: 'cliente1@demo.com', role: 'client', status: 'pending', fullName: 'Cliente Pendiente', identification: '789' },
-        { id: 'u4', email: 'cliente2@demo.com', role: 'client', status: 'disabled', fullName: 'Cliente Deshabilitado', identification: '101' },
-      ]);
-      return;
-    }
-
     const usersCollection = collection(db, 'artifacts', appId, 'public', 'data', 'users');
     const unsubscribe = onSnapshot(query(usersCollection, orderBy('email')), snapshot => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
     return unsubscribe;
-  }, [isDemo]);
+  }, []);
   
   const handleUpdateUser = async (userData) => {
-    if (isDemo) { addNotification("Función no disponible en modo demo.", "error"); return; }
     const { id, ...dataToSave } = userData;
     const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', id);
     await updateDoc(userDocRef, dataToSave);
   };
 
   const handleCreateUser = async (userData) => {
-    if (isDemo) { 
-      addNotification(`Simulación: Creando usuario ${userData.email} con rol ${userData.role}.`, "success");
-      return; 
-    }
-    
     try {
       // Verificar si el email ya existe en la colección de usuarios
       const usersQuery = query(
@@ -83,13 +68,64 @@ function AdminUsersDashboard({ isDemo, userRole }) {
       const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
       await setDoc(userDocRef, userDocData);
       
-      // Enviar verificación de email si está habilitado
+      // Enviar notificación de email si está habilitado
       if (userData.notify) {
         try {
-          await sendEmailVerification(user);
-          addNotification(`Usuario ${userData.email} creado exitosamente. Email de verificación enviado.`, "success");
+          console.log('📧 [USUARIOS] Enviando email de bienvenida al nuevo usuario');
+          
+          // Cargar configuración de email
+          await loadEmailConfig();
+          
+          // Generar link de activación
+          const activationLink = `${window.location.origin}?uid=${user.uid}&email=${encodeURIComponent(userData.email)}&name=${encodeURIComponent(userData.fullName || '')}&id=${encodeURIComponent(userData.identification || '')}`;
+          
+          // Preparar mensaje de bienvenida
+          const emailSubject = `Bienvenido a ${companySettings?.companyName || 'nuestro sistema'}`;
+          const emailBody = `Hola ${userData.fullName || userData.email},
+
+Tu cuenta ha sido creada exitosamente en nuestro sistema de gestión.
+
+Datos de acceso:
+• Email: ${userData.email}
+• Contraseña temporal: ${userData.password}
+
+IMPORTANTE: Debes cambiar tu contraseña al iniciar sesión por primera vez.
+
+${userData.status === 'pending' ? `Para activar tu cuenta, haz clic en el siguiente enlace:
+${activationLink}
+
+` : 'Tu cuenta está activa y lista para usar.\n\n'}Una vez que inicies sesión, podrás:
+• Ver tus servicios contratados
+• Crear tickets de soporte
+• Gestionar tu perfil y pagos
+
+¡Bienvenido!
+
+Equipo de Soporte`;
+
+          // Enviar email usando el servicio
+          await sendEmail({
+            to: userData.email,
+            toName: userData.fullName || userData.email,
+            subject: emailSubject,
+            html: emailBody.replace(/\n/g, '<br>'),
+            text: emailBody,
+            type: 'Activación',
+            recipientType: 'Cliente',
+            module: 'users',
+            event: 'newUser',
+            metadata: {
+              userId: user.uid,
+              userEmail: userData.email,
+              userRole: userData.role,
+              activationLink: activationLink
+            }
+          });
+          
+          addNotification(`Usuario ${userData.email} creado exitosamente. Email de bienvenida enviado.`, "success");
         } catch (emailError) {
-          addNotification(`Usuario ${userData.email} creado exitosamente, pero no se pudo enviar el email de verificación.`, "warning");
+          console.error('Error enviando email de bienvenida:', emailError);
+          addNotification(`Usuario ${userData.email} creado exitosamente, pero no se pudo enviar el email: ${emailError.message}`, "warning");
         }
       } else {
         addNotification(`Usuario ${userData.email} creado exitosamente.`, "success");
@@ -130,7 +166,7 @@ function AdminUsersDashboard({ isDemo, userRole }) {
   };
 
   const handleUserAction = async (user, action) => {
-    if (isDemo || userRole !== 'superadmin') {
+    if (userRole !== 'superadmin') {
       addNotification("Acción no permitida.", "error");
       return;
     }
@@ -144,16 +180,59 @@ function AdminUsersDashboard({ isDemo, userRole }) {
           setActivationModalOpen(true);
           break;
         case 'notify':
-          // Generar link de activación con datos pre-cargados
-          const activationLink = `${window.location.origin}?uid=${user.id}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.fullName || '')}&id=${encodeURIComponent(user.identification || '')}`;
-          
-          // Aquí se enviaría el email (requiere configuración de email)
-          console.log("Link de activación:", activationLink);
-          addNotification(`Link de activación generado para ${user.email}. Copia el link desde la consola.`, "success");
-          
-          // Por ahora, copiar al portapapeles
-          navigator.clipboard.writeText(activationLink);
-          addNotification("Link copiado al portapapeles", "info");
+          try {
+            console.log('📧 [USUARIOS] Enviando notificación de activación al usuario');
+            
+            // Cargar configuración de email
+            await loadEmailConfig();
+            
+            // Generar link de activación
+            const activationLink = `${window.location.origin}?uid=${user.id}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.fullName || '')}&id=${encodeURIComponent(user.identification || '')}`;
+            
+            // Preparar mensaje de activación
+            const emailSubject = `Activación de Cuenta - ${companySettings?.companyName || 'Sistema de Gestión'}`;
+            const emailBody = `Hola ${user.fullName || user.email},
+
+Tu cuenta ha sido activada exitosamente en nuestro sistema de gestión.
+
+${user.status === 'pending' ? `Para completar la activación, haz clic en el siguiente enlace:
+${activationLink}
+
+` : 'Tu cuenta está activa y lista para usar.\n\n'}Ahora puedes:
+• Ver tus servicios contratados
+• Crear tickets de soporte
+• Gestionar tu perfil y pagos
+
+Para acceder, simplemente inicia sesión con tu email y contraseña.
+
+¡Bienvenido!
+
+Equipo de Soporte`;
+
+            // Enviar email usando el servicio
+            await sendEmail({
+              to: user.email,
+              toName: user.fullName || user.email,
+              subject: emailSubject,
+              html: emailBody.replace(/\n/g, '<br>'),
+              text: emailBody,
+              type: 'Activación',
+              recipientType: 'Cliente',
+              module: 'users',
+              event: 'userActivation',
+              metadata: {
+                userId: user.id,
+                userEmail: user.email,
+                userRole: user.role,
+                activationLink: activationLink
+              }
+            });
+            
+            addNotification(`Notificación de activación enviada a ${user.email}`, "success");
+          } catch (emailError) {
+            console.error('Error enviando notificación de activación:', emailError);
+            addNotification(`Error al enviar notificación: ${emailError.message}`, "error");
+          }
           break;
         case 'disable':
           if (window.confirm(`¿Deshabilitar a ${user.email}?`)) {
@@ -332,8 +411,8 @@ function AdminUsersDashboard({ isDemo, userRole }) {
            </tbody>
         </table>
       </div>
-      <CreateUserModal isOpen={isCreateModalOpen} onClose={() => setCreateModalOpen(false)} onSave={handleCreateUser} isDemo={isDemo}/>
-      <UserModal isOpen={isEditModalOpen} onClose={() => setEditModalOpen(false)} onSave={handleUpdateUser} user={editingUser} isDemo={isDemo}/>
+      <CreateUserModal isOpen={isCreateModalOpen} onClose={() => setCreateModalOpen(false)} onSave={handleCreateUser} />
+      <UserModal isOpen={isEditModalOpen} onClose={() => setEditModalOpen(false)} onSave={handleUpdateUser} user={editingUser} />
       <UserActivationModal 
         isOpen={isActivationModalOpen} 
         onClose={() => {
@@ -342,6 +421,7 @@ function AdminUsersDashboard({ isDemo, userRole }) {
         }} 
         onActivate={handleActivateUser}
         user={activatingUser}
+        companySettings={companySettings}
       />
     </div>
   );

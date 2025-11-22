@@ -4,7 +4,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
 import { CreditCardIcon, SettingsIcon } from '../../icons';
 
-function PaymentConfigDashboard({ isDemo }) {
+function PaymentConfigDashboard() {
   const { addNotification } = useNotification();
   const [config, setConfig] = useState({
     bold: {
@@ -43,25 +43,6 @@ function PaymentConfigDashboard({ isDemo }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isDemo) {
-      setConfig({
-        bold: { enabled: true, apiKey: 'demo_key', environment: 'sandbox', webhookSecret: 'demo_secret', autoApprove: false },
-        paypal: { enabled: false, clientId: '', clientSecret: '', environment: 'sandbox', autoApprove: false },
-        payu: { enabled: false, merchantId: '', apiKey: '', apiLogin: '', environment: 'sandbox', autoApprove: false },
-        bankTransfer: { 
-          enabled: true, 
-          accounts: [
-            { id: '1', bankName: 'Banco Nacional', accountNumber: '1234567890', accountHolder: 'Empresa Demo', accountType: 'Ahorros' },
-            { id: '2', bankName: 'Banco Popular', accountNumber: '0987654321', accountHolder: 'Empresa Demo', accountType: 'Corriente' }
-          ], 
-          autoApprove: false, 
-          requireConfirmation: true 
-        },
-        general: { currency: 'USD', defaultGateway: 'bold' }
-      });
-      return;
-    }
-
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'paymentConfig');
     const unsubscribe = onSnapshot(configRef, (doc) => {
       if (doc.exists()) {
@@ -70,7 +51,7 @@ function PaymentConfigDashboard({ isDemo }) {
     });
 
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   const handleConfigChange = (gateway, field, value) => {
     setConfig(prev => ({
@@ -133,10 +114,6 @@ function PaymentConfigDashboard({ isDemo }) {
   };
 
   const handleSave = async () => {
-    if (isDemo) {
-      addNotification("Configuración guardada (modo demo)", "success");
-      return;
-    }
 
     setLoading(true);
     try {

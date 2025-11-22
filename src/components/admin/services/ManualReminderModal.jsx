@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 
-function ManualReminderModal({ isOpen, onClose, onSend, service, templates, companySettings, isDemo }) {
+function ManualReminderModal({ isOpen, onClose, onSend, service, templates, companySettings }) {
   const { addNotification } = useNotification();
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [subject, setSubject] = useState('');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 
-function UserModal({ isOpen, onClose, onSave, user, isDemo }) {
+function UserModal({ isOpen, onClose, onSave, user }) {
   const { addNotification } = useNotification();
   const [formData, setFormData] = useState({});
 

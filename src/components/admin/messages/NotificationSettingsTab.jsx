@@ -3,7 +3,7 @@ import { useNotification } from '../../../contexts/NotificationContext';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
 
-function NotificationSettingsTab({ isDemo }) {
+function NotificationSettingsTab() {
   const { addNotification } = useNotification();
   
   // Configuración por defecto
@@ -27,11 +27,6 @@ function NotificationSettingsTab({ isDemo }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isDemo) {
-      setLoading(false);
-      return;
-    }
-
     const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'notification_settings');
     const unsubscribe = onSnapshot(settingsRef, (doc) => {
       if (doc.exists()) {
@@ -46,7 +41,7 @@ function NotificationSettingsTab({ isDemo }) {
     });
 
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   const handleToggle = (role, module, event) => {
     setSettings(prev => ({
@@ -62,11 +57,6 @@ function NotificationSettingsTab({ isDemo }) {
   };
 
   const handleSave = async () => {
-    if (isDemo) {
-      addNotification('Función no disponible en modo demo', 'error');
-      return;
-    }
-
     try {
       const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'notification_settings');
       await setDoc(settingsRef, {

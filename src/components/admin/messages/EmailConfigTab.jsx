@@ -4,7 +4,7 @@ import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
 import { testEmailConfig } from '../../../services/emailService';
 
-function EmailConfigTab({ isDemo }) {
+function EmailConfigTab() {
   const { addNotification } = useNotification();
   const [config, setConfig] = useState({
     provider: 'smtp', // 'smtp' o 'zoho'
@@ -28,24 +28,6 @@ function EmailConfigTab({ isDemo }) {
   const [testEmail, setTestEmail] = useState('');
 
   useEffect(() => {
-    if (isDemo) {
-      setConfig({
-        provider: 'smtp',
-        smtpHost: 'smtp.gmail.com',
-        smtpPort: 587,
-        smtpSecure: false,
-        smtpUser: 'demo@example.com',
-        smtpPassword: '****',
-        zohoClientId: '',
-        zohoClientSecret: '',
-        zohoRefreshToken: '',
-        fromEmail: 'noreply@empresa.com',
-        fromName: 'Gestor de Cobros',
-        enabled: false
-      });
-      return;
-    }
-
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'email_config');
     const unsubscribe = onSnapshot(configRef, (doc) => {
       if (doc.exists()) {
@@ -66,7 +48,7 @@ function EmailConfigTab({ isDemo }) {
     });
 
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -82,11 +64,6 @@ function EmailConfigTab({ isDemo }) {
   };
 
   const handleSave = async () => {
-    if (isDemo) {
-      addNotification('Función no disponible en modo demo', 'error');
-      return;
-    }
-
     try {
       const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'email_config');
       await setDoc(configRef, {

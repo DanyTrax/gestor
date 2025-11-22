@@ -1,60 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../contexts/NotificationContext';
-import { collection, onSnapshot, query, orderBy, where, addDoc, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, addDoc, Timestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db, appId } from '../../config/firebase';
 import { UserIcon, ClockIcon, MessageIcon, PaperClipIcon } from '../icons';
+import { sendEmail, loadEmailConfig } from '../../services/emailService';
 
-function TicketMessagesHistory({ ticketId, isDemo, userRole, currentUser }) {
+function TicketMessagesHistory({ ticketId, userRole, currentUser }) {
   const { addNotification } = useNotification();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [isInternal, setIsInternal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    if (isDemo) {
-      setMessages([
-        {
-          id: 'msg1',
-          ticketId: ticketId,
-          content: 'Hola, tengo un problema con el acceso a mi panel de cliente. No puedo iniciar sesión desde ayer.',
-          senderId: 'client1',
-          senderName: 'Juan Pérez',
-          senderRole: 'client',
-          senderEmail: 'juan@ejemplo.com',
-          isInternal: false,
-          createdAt: { seconds: Date.now() / 1000 - 3600 },
-          attachments: []
-        },
-        {
-          id: 'msg2',
-          ticketId: ticketId,
-          content: 'Hola Juan, gracias por contactarnos. He revisado tu cuenta y veo que hay un problema con la configuración de tu perfil. Voy a solucionarlo ahora mismo.',
-          senderId: 'admin1',
-          senderName: 'Admin Principal',
-          senderRole: 'admin',
-          senderEmail: 'admin@empresa.com',
-          isInternal: false,
-          createdAt: { seconds: Date.now() / 1000 - 1800 },
-          attachments: []
-        },
-        {
-          id: 'msg3',
-          ticketId: ticketId,
-          content: 'Nota interna: El cliente tiene un problema de configuración en su perfil. Necesito revisar la base de datos.',
-          senderId: 'admin1',
-          senderName: 'Admin Principal',
-          senderRole: 'admin',
-          senderEmail: 'admin@empresa.com',
-          isInternal: true,
-          createdAt: { seconds: Date.now() / 1000 - 900 },
-          attachments: []
-        }
-      ]);
-      setLoading(false);
-      return;
-    }
-
     if (!ticketId) {
       setLoading(false);
       return;
@@ -87,7 +46,7 @@ function TicketMessagesHistory({ ticketId, isDemo, userRole, currentUser }) {
     });
 
     return () => unsubscribe();
-  }, [ticketId, isDemo, addNotification]);
+  }, [ticketId, addNotification]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -95,31 +54,6 @@ function TicketMessagesHistory({ ticketId, isDemo, userRole, currentUser }) {
     if (!newMessage.trim()) return;
 
     setSending(true);
-
-    if (isDemo) {
-      const demoMessage = {
-        id: `msg_${Date.now()}`,
-        ticketId: ticketId,
-        content: newMessage,
-        senderId: currentUser?.uid || 'demo',
-        senderName: currentUser?.displayName || 'Usuario Demo',
-        senderRole: userRole || 'client',
-        senderEmail: currentUser?.email || 'demo@ejemplo.com',
-        isInternal: false,
-        createdAt: { seconds: Date.now() / 1000 },
-        attachments: []
-      };
-      setMessages(prev => [...prev, demoMessage]);
-      setNewMessage('');
-      setSending(false);
-      addNotification('Mensaje enviado (modo demo)', 'success');
-      
-      // Notificar al componente padre que se actualizó el contador
-      if (window.updateTicketReplyCount) {
-        window.updateTicketReplyCount(ticketId, messages.length + 1);
-      }
-      return;
-    }
 
     try {
       const messageData = {
@@ -129,7 +63,7 @@ function TicketMessagesHistory({ ticketId, isDemo, userRole, currentUser }) {
         senderName: currentUser.displayName || currentUser.email,
         senderRole: userRole,
         senderEmail: currentUser.email,
-        isInternal: false,
+        isInternal: isInternal && (userRole === 'admin' || userRole === 'superadmin'),
         createdAt: Timestamp.now(),
         attachments: []
       };
@@ -137,17 +71,119 @@ function TicketMessagesHistory({ ticketId, isDemo, userRole, currentUser }) {
       // Agregar el mensaje
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'ticketMessages'), messageData);
       
-      // Actualizar el contador de respuestas del ticket
+      // Obtener información del ticket para las notificaciones
       const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+      const ticketDoc = await getDoc(ticketRef);
+      const ticket = ticketDoc.exists() ? { id: ticketDoc.id, ...ticketDoc.data() } : null;
+      
+      // Actualizar el contador de respuestas del ticket
       await updateDoc(ticketRef, {
         replyCount: messages.length + 1,
         lastReplyAt: Timestamp.now(),
         lastReplyBy: currentUser.displayName || currentUser.email,
-        updatedAt: Timestamp.now()
+        updatedAt: Timestamp.now(),
+        // Si el admin responde, cambiar estado a "Respondido"
+        ...(userRole === 'admin' || userRole === 'superadmin' ? { status: 'Respondido' } : {})
       });
       
+      // Enviar notificaciones por email (solo si NO es nota interna)
+      if (ticket && !messageData.isInternal) {
+        try {
+          console.log('📧 [TICKET] Iniciando envío de notificaciones por respuesta');
+          await loadEmailConfig();
+          
+          const ticketNumber = ticket.ticketNumber;
+          const ticketSubject = ticket.subject;
+          const messageContent = newMessage.trim();
+          const senderName = currentUser.displayName || currentUser.email;
+          const senderEmail = currentUser.email;
+          const emailConfig = await loadEmailConfig();
+          
+          if (userRole === 'client') {
+            // Cliente responde - Notificar al administrador
+            const adminEmail = emailConfig?.fromEmail;
+            if (adminEmail) {
+              console.log('📧 [TICKET] Enviando email al administrador por respuesta del cliente:', adminEmail);
+              const adminEmailHtml = `
+                <h2>Nueva Respuesta - Ticket ${ticketNumber}</h2>
+                <p>El cliente ha respondido a su ticket de soporte.</p>
+                <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                  <p><strong>Número de Ticket:</strong> ${ticketNumber}</p>
+                  <p><strong>Cliente:</strong> ${ticket.clientName || senderName}${ticket.clientEmail ? ` (${ticket.clientEmail})` : ''}</p>
+                  <p><strong>Asunto:</strong> ${ticketSubject}</p>
+                  <p><strong>Respuesta:</strong></p>
+                  <p style="white-space: pre-wrap; background-color: #ffffff; padding: 10px; border-radius: 3px; margin-top: 10px;">${messageContent}</p>
+                </div>
+                <p>Por favor, revisa y responde desde el panel de administración.</p>
+              `;
+              
+              await sendEmail({
+                to: adminEmail,
+                toName: emailConfig?.fromName || 'Administrador',
+                subject: `Nueva Respuesta - Ticket ${ticketNumber}`,
+                html: adminEmailHtml,
+                text: `Nueva Respuesta - Ticket ${ticketNumber}\n\nEl cliente ha respondido a su ticket de soporte.\n\nNúmero de Ticket: ${ticketNumber}\nCliente: ${ticket.clientName || senderName}${ticket.clientEmail ? ` (${ticket.clientEmail})` : ''}\nAsunto: ${ticketSubject}\n\nRespuesta:\n${messageContent}\n\nPor favor, revisa y responde desde el panel de administración.`,
+                type: 'Notificación',
+                recipientType: 'Administrador',
+                module: 'tickets',
+                event: 'ticketReply',
+                metadata: {
+                  ticketId: ticketId,
+                  ticketNumber: ticketNumber,
+                  senderEmail: senderEmail,
+                  senderName: senderName
+                }
+              });
+            }
+          } else {
+            // Admin responde - Notificar al cliente
+            const clientEmail = ticket.clientEmail;
+            if (clientEmail) {
+              console.log('📧 [TICKET] Enviando email al cliente por respuesta del administrador:', clientEmail);
+              const clientEmailHtml = `
+                <h2>Nueva Respuesta - Ticket ${ticketNumber}</h2>
+                <p>Estimado/a <strong>${ticket.clientName || 'Cliente'}</strong>,</p>
+                <p>Hemos respondido a tu ticket de soporte.</p>
+                <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                  <p><strong>Número de Ticket:</strong> ${ticketNumber}</p>
+                  <p><strong>Asunto:</strong> ${ticketSubject}</p>
+                  <p><strong>Respuesta:</strong></p>
+                  <p style="white-space: pre-wrap; background-color: #ffffff; padding: 10px; border-radius: 3px; margin-top: 10px;">${messageContent}</p>
+                </div>
+                <p>Puedes ver la respuesta completa y responder desde tu panel de cliente.</p>
+                <p>Saludos cordiales,<br>Equipo de Soporte</p>
+              `;
+              
+              await sendEmail({
+                to: clientEmail,
+                toName: ticket.clientName || 'Cliente',
+                subject: `Respuesta a Ticket ${ticketNumber} - ${ticketSubject}`,
+                html: clientEmailHtml,
+                text: `Nueva Respuesta - Ticket ${ticketNumber}\n\nEstimado/a ${ticket.clientName || 'Cliente'},\n\nHemos respondido a tu ticket de soporte.\n\nNúmero de Ticket: ${ticketNumber}\nAsunto: ${ticketSubject}\n\nRespuesta:\n${messageContent}\n\nPuedes ver la respuesta completa y responder desde tu panel de cliente.\n\nSaludos cordiales,\nEquipo de Soporte`,
+                type: 'Notificación',
+                recipientType: 'Cliente',
+                module: 'tickets',
+                event: 'ticketReply',
+                metadata: {
+                  ticketId: ticketId,
+                  ticketNumber: ticketNumber,
+                  senderEmail: senderEmail,
+                  senderName: senderName
+                }
+              });
+            }
+          }
+          
+          console.log('✅ [TICKET] Notificaciones por respuesta completadas');
+        } catch (emailError) {
+          console.error("❌ [TICKET] Error sending reply notification emails:", emailError);
+          // No fallar el envío del mensaje si falla el email
+        }
+      }
+      
       setNewMessage('');
-      addNotification('Mensaje enviado', 'success');
+      setIsInternal(false);
+      addNotification(messageData.isInternal ? 'Nota interna agregada' : 'Mensaje enviado', 'success');
     } catch (error) {
       console.error('Error sending message:', error);
       addNotification('Error al enviar el mensaje', 'error');
@@ -271,6 +307,8 @@ function TicketMessagesHistory({ ticketId, isDemo, userRole, currentUser }) {
               <label className="flex items-center">
                 <input
                   type="checkbox"
+                  checked={isInternal}
+                  onChange={(e) => setIsInternal(e.target.checked)}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-gray-700">Nota interna (solo visible para administradores)</span>

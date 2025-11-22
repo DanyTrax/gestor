@@ -4,7 +4,7 @@ import { collection, onSnapshot, query, where, doc, addDoc, Timestamp } from 'fi
 import { db, appId } from '../../config/firebase';
 import { CalendarIcon, CreditCardIcon, PercentIcon } from '../icons';
 
-function ClientRenewalDashboard({ user, isDemo, userProfile }) {
+function ClientRenewalDashboard({ user, userProfile }) {
   const { addNotification } = useNotification();
   const [services, setServices] = useState([]);
   const [renewalConfig, setRenewalConfig] = useState(null);

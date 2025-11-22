@@ -5,7 +5,7 @@ import ClientPaymentsDashboard from '../client/ClientPaymentsDashboard';
 import ClientRenewalDashboard from '../client/ClientRenewalDashboard';
 import ClientTicketsDashboard from '../client/ClientTicketsDashboard';
 
-function ClientDashboard({ user, isDemo, userProfile }) {
+function ClientDashboard({ user, userProfile }) {
   const [activeTab, setActiveTab] = useState('services');
 
   // Sincronizar hash (#services, #payments, #renewals, #tickets) con pestañas
@@ -23,11 +23,11 @@ function ClientDashboard({ user, isDemo, userProfile }) {
 
    const renderTabContent = () => {
     switch(activeTab) {
-      case 'tickets': return <ClientTicketsDashboard user={user} isDemo={isDemo} userProfile={userProfile} />;
-      case 'payments': return <ClientPaymentsDashboard user={user} isDemo={isDemo} userProfile={userProfile} />;
-      case 'renewals': return <ClientRenewalDashboard user={user} isDemo={isDemo} userProfile={userProfile} />;
+      case 'tickets': return <ClientTicketsDashboard user={user} userProfile={userProfile} />;
+      case 'payments': return <ClientPaymentsDashboard user={user} userProfile={userProfile} />;
+      case 'renewals': return <ClientRenewalDashboard user={user} userProfile={userProfile} />;
       case 'services':
-      default: return <ClientServicesDashboard user={user} isDemo={isDemo} userProfile={userProfile} />;
+      default: return <ClientServicesDashboard user={user} userProfile={userProfile} />;
     }
   };
   

@@ -6,8 +6,9 @@ import { PlusIcon, SearchIcon } from '../../icons';
 import ActionDropdown from '../../common/ActionDropdown';
 import ServiceModal from './ServiceModal';
 import ManualReminderModal from './ManualReminderModal';
+import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 
-function AdminServicesDashboard({ isDemo, userRole }) {
+function AdminServicesDashboard({ userRole }) {
   const { addNotification } = useNotification();
   const [services, setServices] = useState([]);
   const [clients, setClients] = useState([]);
@@ -22,24 +23,6 @@ function AdminServicesDashboard({ isDemo, userRole }) {
   const serviceStatusOptions = ['Activo', 'Periodo de Gracia Vencido', 'Pendiente Pago', 'Pago', 'Cancelado'];
   
   useEffect(() => {
-    if(isDemo) {
-      const demoDueDate = Timestamp.fromDate(new Date());
-      setServices([
-        {id: 's1', clientName: 'Juan Perez (Demo)', clientEmail: 'juan@demo.com', serviceType: 'Hosting', description: 'Plan Pro', amount: 25.00, currency: 'USD', dueDate: demoDueDate, billingCycle: 'Monthly', status: 'Pendiente Pago', clientNotes: 'A la espera del pago.', adminNotes: 'Contactado por teléfono.'},
-        {id: 's2', clientName: 'Maria Garcia (Demo)', clientEmail: 'maria@demo.com', serviceType: 'Dominio', description: 'nuevositio.co', amount: 50000, currency: 'COP', dueDate: demoDueDate, billingCycle: 'Annually', status: 'Pago', clientNotes: '', adminNotes: ''},
-        {id: 's3', clientName: 'Carlos Lopez (Demo)', clientEmail: 'carlos@demo.com', serviceType: 'Mantenimiento', description: 'Sitio Web', amount: 150.00, currency: 'USD', dueDate: demoDueDate, billingCycle: 'Monthly', status: 'Activo', clientNotes: 'Servicio funcionando correctamente.', adminNotes: 'Cliente satisfecho.'},
-        {id: 's4', clientName: 'Ana Rodriguez (Demo)', clientEmail: 'ana@demo.com', serviceType: 'Hosting', description: 'Plan Básico', amount: 15.00, currency: 'USD', dueDate: demoDueDate, billingCycle: 'Monthly', status: 'Periodo de Gracia Vencido', clientNotes: 'Necesita renovar pronto.', adminNotes: 'Enviar recordatorio urgente.'},
-        {id: 's5', clientName: 'Pedro Martinez (Demo)', clientEmail: 'pedro@demo.com', serviceType: 'Dominio', description: 'tiendaonline.com', amount: 120000, currency: 'COP', dueDate: demoDueDate, billingCycle: 'Annually', status: 'Cancelado', clientNotes: 'Cliente canceló el servicio.', adminNotes: 'Cancelación por solicitud del cliente.'},
-      ]);
-      setClients([
-        {id: 'c1', email: 'juan@demo.com', fullName: 'Juan Perez (Demo)'},
-        {id: 'c2', email: 'maria@demo.com', fullName: 'Maria Garcia (Demo)'}
-      ]);
-      setTemplates([{ id: 't1', name: 'Recordatorio General (Demo)', subject: 'Recordatorio de pago', body: 'Hola {clientName}, recuerda pagar...' }]);
-      setCompanySettings({ companyName: 'Tu Empresa (Demo)' });
-      return;
-    }
-    
     const servicesCollection = collection(db, 'artifacts', appId, 'public', 'data', 'services');
     const qServices = query(servicesCollection, orderBy('dueDate', 'desc'));
     const unsubscribeServices = onSnapshot(qServices, (snapshot) => {
@@ -68,13 +51,9 @@ function AdminServicesDashboard({ isDemo, userRole }) {
       unsubTemplates();
       unsubSettings();
     };
-  }, [isDemo]);
+  }, []);
   
   const handleSaveService = async (serviceData) => {
-    if (isDemo) { 
-      addNotification("Función no disponible en modo demo.", "error");
-      return; 
-    }
     const servicesCollection = collection(db, 'artifacts', appId, 'public', 'data', 'services');
     try {
       if (serviceData.id) {
@@ -89,7 +68,6 @@ function AdminServicesDashboard({ isDemo, userRole }) {
   };
   
   const handleDeleteService = async (id) => {
-    if (isDemo) { addNotification("Función no disponible en modo demo.", "error"); return; }
     if (window.confirm("¿Seguro que quieres eliminar este servicio?")) {
       try {
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'services', id));
@@ -101,23 +79,63 @@ function AdminServicesDashboard({ isDemo, userRole }) {
   };
   
   const handleSendMessage = async (messageData) => {
-    if (isDemo) { 
-       addNotification(`Simulación: Enviando correo a ${messageData.to}.`, "success");
-       return;
-    }
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messageHistory'), {
-        ...messageData,
-        sentAt: Timestamp.now(),
+      console.log('📧 [SERVICES] Iniciando envío de notificación manual');
+      await loadEmailConfig();
+      
+      const clientName = currentService?.clientName || 'Cliente';
+      const clientEmail = messageData.to;
+      const subject = messageData.subject;
+      const body = messageData.body;
+      const reason = messageData.reason || 'Notificación Manual';
+      
+      // Convertir el body a HTML si es texto plano
+      const htmlBody = body.replace(/\n/g, '<br>');
+      
+      console.log('📧 [SERVICES] Enviando email al cliente:', clientEmail);
+      
+      const emailResult = await sendEmail({
+        to: clientEmail,
+        toName: clientName,
+        subject: subject,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">${subject}</h2>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              ${htmlBody}
+            </div>
+            <p style="color: #666; font-size: 12px; margin-top: 20px;">
+              Este es un mensaje automático del sistema de gestión.
+            </p>
+          </div>
+        `,
+        text: body,
+        type: 'Notificación',
+        recipientType: 'Cliente',
+        module: 'services',
+        event: 'expirationReminder',
+        metadata: {
+          serviceId: currentService?.id,
+          serviceType: currentService?.serviceType,
+          reason: reason,
+          manualNotification: true
+        }
       });
-      addNotification("Notificación registrada en el historial.", "success");
+      
+      if (emailResult.success) {
+        console.log('✅ [SERVICES] Notificación enviada exitosamente');
+        addNotification("Notificación enviada exitosamente", "success");
+      } else {
+        console.error('❌ [SERVICES] Error al enviar notificación:', emailResult.error);
+        addNotification(`Notificación registrada pero no enviada: ${emailResult.error}`, "warning");
+      }
     } catch (error) {
-      addNotification("Error al registrar la notificación.", "error");
+      console.error("❌ [SERVICES] Error sending notification:", error);
+      addNotification(`Error al enviar la notificación: ${error.message}`, "error");
     }
   };
 
   const handleStatusChange = async (serviceId, newStatus) => {
-    if (isDemo) { addNotification("Función no disponible en modo demo.", "error"); return; }
     try {
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'services', serviceId), { status: newStatus });
       addNotification("Estado actualizado.", "success");
@@ -298,8 +316,8 @@ function AdminServicesDashboard({ isDemo, userRole }) {
           </tbody>
         </table>
       </div>
-      <ServiceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveService} service={currentService} clients={clients} isDemo={isDemo} />
-      <ManualReminderModal isOpen={isReminderModalOpen} onClose={() => setIsReminderModalOpen(false)} onSend={handleSendMessage} service={currentService} templates={templates} companySettings={companySettings} isDemo={isDemo}/>
+      <ServiceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveService} service={currentService} clients={clients} />
+      <ManualReminderModal isOpen={isReminderModalOpen} onClose={() => setIsReminderModalOpen(false)} onSend={handleSendMessage} service={currentService} templates={templates} companySettings={companySettings} />
     </div>
   );
 }

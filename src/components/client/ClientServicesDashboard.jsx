@@ -5,7 +5,7 @@ import { db, appId } from '../../config/firebase';
 import { ServicesIcon, CreditCardIcon, EyeIcon, CalendarIcon } from '../icons';
 import PaymentConfirmationModal from '../common/PaymentConfirmationModal';
 
-function ClientServicesDashboard({ user, isDemo, userProfile }) {
+function ClientServicesDashboard({ user, userProfile }) {
   const { addNotification } = useNotification();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);

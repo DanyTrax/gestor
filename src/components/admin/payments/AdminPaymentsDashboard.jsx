@@ -9,7 +9,7 @@ import PaymentConfigDashboard from './PaymentConfigDashboard';
 import RenewalConfigDashboard from './RenewalConfigDashboard';
 import { jsPDF } from 'jspdf';
 
-function AdminPaymentsDashboard({ isDemo, userRole }) {
+function AdminPaymentsDashboard({ userRole }) {
   const { addNotification } = useNotification();
   const [payments, setPayments] = useState([]);
   const [clients, setClients] = useState([]);
@@ -25,55 +25,6 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
   const gatewayOptions = ['Todos', 'Bold', 'PayPal', 'PayU', 'Transferencia Bancaria', 'Manual'];
 
   useEffect(() => {
-    if (isDemo) {
-      setPayments([
-        {
-          id: 'demo1',
-          serviceNumber: 'SRV-241017-123456',
-          clientName: 'Juan Pérez',
-          clientEmail: 'juan@ejemplo.com',
-          amount: 10.99,
-          currency: 'USD',
-          status: 'Completado',
-          gateway: 'Bold',
-          transactionId: 'bold_txn_123456',
-          createdAt: { seconds: Date.now() / 1000 - 86400 },
-          completedAt: { seconds: Date.now() / 1000 - 3600 }
-        },
-        {
-          id: 'demo2',
-          serviceNumber: 'SRV-241017-789012',
-          clientName: 'María García',
-          clientEmail: 'maria@ejemplo.com',
-          amount: 25.00,
-          currency: 'USD',
-          status: 'Pendiente',
-          gateway: 'PayPal',
-          transactionId: 'paypal_txn_789012',
-          createdAt: { seconds: Date.now() / 1000 - 7200 }
-        },
-        {
-          id: 'demo3',
-          serviceNumber: 'SRV-241017-345678',
-          clientName: 'Carlos López',
-          clientEmail: 'carlos@ejemplo.com',
-          amount: 50.00,
-          currency: 'USD',
-          status: 'Completado',
-          gateway: 'Transferencia Bancaria',
-          transactionId: 'TRF-123456789',
-          createdAt: { seconds: Date.now() / 1000 - 10800 },
-          completedAt: { seconds: Date.now() / 1000 - 9000 }
-        }
-      ]);
-      setClients([
-        { id: 'client1', fullName: 'Juan Pérez', email: 'juan@ejemplo.com' },
-        { id: 'client2', fullName: 'María García', email: 'maria@ejemplo.com' }
-      ]);
-      setLoading(false);
-      return;
-    }
-
     // Cargar pagos
     const paymentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'payments');
     
@@ -122,7 +73,7 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
       unsubscribePayments();
       unsubscribeClients();
     };
-  }, [isDemo, addNotification]);
+  }, [addNotification]);
 
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = 
@@ -344,11 +295,6 @@ function AdminPaymentsDashboard({ isDemo, userRole }) {
   };
 
   const handleStatusChange = async (paymentId, newStatus) => {
-    if (isDemo) {
-      addNotification("Función no disponible en modo demo", "error");
-      return;
-    }
-
     try {
       const paymentRef = doc(db, 'artifacts', appId, 'public', 'data', 'payments', paymentId);
       
@@ -596,11 +542,6 @@ Gracias por su comprensión.
 
   // Eliminar pago
   const handleDeletePayment = async (paymentId) => {
-    if (isDemo) {
-      addNotification("Función no disponible en modo demo", "error");
-      return;
-    }
-
     if (window.confirm('¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.')) {
       try {
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'payments', paymentId));
@@ -716,10 +657,10 @@ Gracias por su comprensión.
       {activeSubTab === 'renewal' ? (
         <div className="p-6">
           <h3 className="text-lg font-semibold mb-4">Configuración de Renovaciones</h3>
-          <RenewalConfigDashboard isDemo={isDemo} />
+          <RenewalConfigDashboard />
         </div>
       ) : activeSubTab === 'config' ? (
-        <PaymentConfigDashboard isDemo={isDemo} />
+        <PaymentConfigDashboard />
       ) : (
         <>
           <div className="flex flex-wrap justify-between items-center gap-4 mb-6">

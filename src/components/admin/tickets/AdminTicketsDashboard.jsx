@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
-import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, addDoc, Timestamp, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, addDoc, Timestamp, deleteDoc, getDocs, getDoc } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
 import { TicketIcon, SearchIcon, FilterIcon, PlusIcon, EyeIcon, CheckIcon, XIcon, ClockIcon, UserIcon, MessageIcon } from '../../icons';
 import TicketMessagesHistory from '../../tickets/TicketMessagesHistory';
 import ActionDropdown from '../../common/ActionDropdown';
 import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 
-function AdminTicketsDashboard({ isDemo, userRole }) {
+function AdminTicketsDashboard({ userRole }) {
   const { addNotification } = useNotification();
   const [tickets, setTickets] = useState([]);
   const [clients, setClients] = useState([]);
@@ -34,101 +34,6 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
   const departmentOptions = ['Todos', 'Soporte Técnico', 'Facturación', 'Ventas', 'General'];
 
   useEffect(() => {
-    if (isDemo) {
-      setTickets([
-        {
-          id: 'ticket1',
-          ticketNumber: 'TKT-2024-001',
-          subject: 'Problema con el acceso al panel de cliente',
-          description: 'No puedo acceder a mi panel de cliente desde ayer. Me aparece un error 500.',
-          status: 'Abierto',
-          priority: 'Alta',
-          department: 'Soporte Técnico',
-          clientId: 'client1',
-          clientName: 'Juan Pérez',
-          clientEmail: 'juan@ejemplo.com',
-          assignedTo: null,
-          assignedToName: null,
-          createdAt: { seconds: Date.now() / 1000 - 3600 },
-          updatedAt: { seconds: Date.now() / 1000 - 3600 },
-          lastReplyAt: { seconds: Date.now() / 1000 - 3600 },
-          lastReplyBy: 'Cliente',
-          replyCount: 0,
-          attachments: []
-        },
-        {
-          id: 'ticket2',
-          ticketNumber: 'TKT-2024-002',
-          subject: 'Consulta sobre facturación',
-          description: 'Necesito una copia de mi factura del mes pasado para contabilidad.',
-          status: 'Respondido',
-          priority: 'Media',
-          department: 'Facturación',
-          clientId: 'client2',
-          clientName: 'María García',
-          clientEmail: 'maria@ejemplo.com',
-          assignedTo: 'admin1',
-          assignedToName: 'Admin Principal',
-          createdAt: { seconds: Date.now() / 1000 - 7200 },
-          updatedAt: { seconds: Date.now() / 1000 - 1800 },
-          lastReplyAt: { seconds: Date.now() / 1000 - 1800 },
-          lastReplyBy: 'Admin Principal',
-          replyCount: 2,
-          attachments: ['factura_enero.pdf']
-        },
-        {
-          id: 'ticket3',
-          ticketNumber: 'TKT-2024-003',
-          subject: 'Solicitud de nuevo servicio',
-          description: 'Me gustaría contratar un plan de hosting más grande para mi sitio web.',
-          status: 'En Progreso',
-          priority: 'Baja',
-          department: 'Ventas',
-          clientId: 'client3',
-          clientName: 'Carlos López',
-          clientEmail: 'carlos@ejemplo.com',
-          assignedTo: 'admin2',
-          assignedToName: 'Admin Ventas',
-          createdAt: { seconds: Date.now() / 1000 - 10800 },
-          updatedAt: { seconds: Date.now() / 1000 - 900 },
-          lastReplyAt: { seconds: Date.now() / 1000 - 900 },
-          lastReplyBy: 'Admin Ventas',
-          replyCount: 1,
-          attachments: []
-        },
-        {
-          id: 'ticket4',
-          ticketNumber: 'TKT-2024-004',
-          subject: 'Error crítico en el servidor',
-          description: 'Mi sitio web está caído y no responde. Es urgente.',
-          status: 'Abierto',
-          priority: 'Crítica',
-          department: 'Soporte Técnico',
-          clientId: 'client4',
-          clientName: 'Ana Martínez',
-          clientEmail: 'ana@ejemplo.com',
-          assignedTo: null,
-          assignedToName: null,
-          createdAt: { seconds: Date.now() / 1000 - 300 },
-          updatedAt: { seconds: Date.now() / 1000 - 300 },
-          lastReplyAt: { seconds: Date.now() / 1000 - 300 },
-          lastReplyBy: 'Cliente',
-          replyCount: 0,
-          attachments: ['error_screenshot.png']
-        }
-      ]);
-      
-      setClients([
-        { id: 'client1', fullName: 'Juan Pérez', email: 'juan@ejemplo.com' },
-        { id: 'client2', fullName: 'María García', email: 'maria@ejemplo.com' },
-        { id: 'client3', fullName: 'Carlos López', email: 'carlos@ejemplo.com' },
-        { id: 'client4', fullName: 'Ana Martínez', email: 'ana@ejemplo.com' }
-      ]);
-      
-      setLoading(false);
-      return;
-    }
-
     const ticketsQuery = query(
       collection(db, 'artifacts', appId, 'public', 'data', 'tickets')
     );
@@ -173,20 +78,117 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
       unsubscribeTickets();
       unsubscribeClients();
     };
-  }, [isDemo, addNotification]);
+  }, [addNotification]);
 
   const handleStatusChange = async (ticketId, newStatus) => {
-    if (isDemo) {
-      addNotification("Función no disponible en modo demo", "error");
-      return;
-    }
-
     try {
+      // Obtener el ticket actual antes de actualizarlo
       const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+      const ticketDoc = await getDoc(ticketRef);
+      if (!ticketDoc.exists()) {
+        addNotification("Ticket no encontrado", "error");
+        return;
+      }
+      
+      const ticket = { id: ticketDoc.id, ...ticketDoc.data() };
+      const oldStatus = ticket.status;
+      
+      // Actualizar el estado
       await updateDoc(ticketRef, { 
         status: newStatus,
         updatedAt: Timestamp.now()
       });
+      
+      // Enviar notificaciones por email
+      try {
+        console.log('📧 [ADMIN] Iniciando envío de notificaciones por cambio de estado');
+        await loadEmailConfig();
+        
+        const ticketNumber = ticket.ticketNumber;
+        const ticketSubject = ticket.subject;
+        const clientName = ticket.clientName || 'Cliente';
+        const clientEmail = ticket.clientEmail;
+        const emailConfig = await loadEmailConfig();
+        const adminEmail = emailConfig?.fromEmail;
+        
+        // Email al cliente - Notificación de cambio de estado
+        if (clientEmail && oldStatus !== newStatus) {
+          console.log('📧 [ADMIN] Enviando email al cliente por cambio de estado:', clientEmail);
+          const clientEmailHtml = `
+            <h2>Actualización de Ticket ${ticketNumber}</h2>
+            <p>Estimado/a <strong>${clientName}</strong>,</p>
+            <p>El estado de tu ticket ha sido actualizado.</p>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p><strong>Número de Ticket:</strong> ${ticketNumber}</p>
+              <p><strong>Asunto:</strong> ${ticketSubject}</p>
+              <p><strong>Estado Anterior:</strong> ${oldStatus}</p>
+              <p><strong>Estado Nuevo:</strong> <strong style="color: #2563eb;">${newStatus}</strong></p>
+            </div>
+            <p>Puedes revisar el estado actualizado de tu ticket desde tu panel de cliente.</p>
+            <p>Saludos cordiales,<br>Equipo de Soporte</p>
+          `;
+          
+          await sendEmail({
+            to: clientEmail,
+            toName: clientName,
+            subject: `Ticket ${ticketNumber} - Estado Actualizado a ${newStatus}`,
+            html: clientEmailHtml,
+            text: `Actualización de Ticket ${ticketNumber}\n\nEstimado/a ${clientName},\n\nEl estado de tu ticket ha sido actualizado.\n\nNúmero de Ticket: ${ticketNumber}\nAsunto: ${ticketSubject}\nEstado Anterior: ${oldStatus}\nEstado Nuevo: ${newStatus}\n\nPuedes revisar el estado actualizado de tu ticket desde tu panel de cliente.\n\nSaludos cordiales,\nEquipo de Soporte`,
+            type: 'Notificación',
+            recipientType: 'Cliente',
+            module: 'tickets',
+            event: 'ticketUpdate',
+            metadata: {
+              ticketId: ticketId,
+              ticketNumber: ticketNumber,
+              oldStatus: oldStatus,
+              newStatus: newStatus
+            }
+          });
+        }
+        
+        // Email al administrador - Notificación de cambio de estado (si es crítico)
+        if (adminEmail && ticket.priority === 'Crítica' && oldStatus !== newStatus) {
+          console.log('📧 [ADMIN] Enviando email al administrador por cambio de estado crítico');
+          const adminEmailHtml = `
+            <h2>Cambio de Estado - Ticket ${ticketNumber}</h2>
+            <p>Se ha actualizado el estado de un ticket crítico.</p>
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+              <p><strong>Número de Ticket:</strong> ${ticketNumber}</p>
+              <p><strong>Cliente:</strong> ${clientName}${clientEmail ? ` (${clientEmail})` : ''}</p>
+              <p><strong>Asunto:</strong> ${ticketSubject}</p>
+              <p><strong>Prioridad:</strong> ${ticket.priority}</p>
+              <p><strong>Estado Anterior:</strong> ${oldStatus}</p>
+              <p><strong>Estado Nuevo:</strong> ${newStatus}</p>
+            </div>
+          `;
+          
+          await sendEmail({
+            to: adminEmail,
+            toName: emailConfig?.fromName || 'Administrador',
+            subject: `Ticket ${ticketNumber} - Estado Actualizado`,
+            html: adminEmailHtml,
+            text: `Cambio de Estado - Ticket ${ticketNumber}\n\nSe ha actualizado el estado de un ticket crítico.\n\nNúmero de Ticket: ${ticketNumber}\nCliente: ${clientName}${clientEmail ? ` (${clientEmail})` : ''}\nAsunto: ${ticketSubject}\nPrioridad: ${ticket.priority}\nEstado Anterior: ${oldStatus}\nEstado Nuevo: ${newStatus}`,
+            type: 'Notificación',
+            recipientType: 'Administrador',
+            module: 'tickets',
+            event: 'ticketUpdate',
+            metadata: {
+              ticketId: ticketId,
+              ticketNumber: ticketNumber,
+              oldStatus: oldStatus,
+              newStatus: newStatus,
+              priority: ticket.priority
+            }
+          });
+        }
+        
+        console.log('✅ [ADMIN] Notificaciones por cambio de estado completadas');
+      } catch (emailError) {
+        console.error("❌ [ADMIN] Error sending status change notification emails:", emailError);
+        // No fallar la actualización si falla el email
+      }
+      
       addNotification(`Estado del ticket actualizado a ${newStatus}`, "success");
     } catch (error) {
       console.error("Error updating ticket status:", error);
@@ -195,20 +197,116 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
   };
 
   const handleAssignTicket = async (ticketId, assignedTo) => {
-    if (isDemo) {
-      addNotification("Función no disponible en modo demo", "error");
-      return;
-    }
-
     try {
+      // Obtener el ticket actual antes de actualizarlo
       const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+      const ticketDoc = await getDoc(ticketRef);
+      if (!ticketDoc.exists()) {
+        addNotification("Ticket no encontrado", "error");
+        return;
+      }
+      
+      const ticket = { id: ticketDoc.id, ...ticketDoc.data() };
+      const oldAssignedTo = ticket.assignedTo;
+      const oldAssignedToName = ticket.assignedToName;
+      
       const assignedToName = assignedTo ? 'Admin Actual' : null; // En producción, buscar el nombre real
+      
+      // Actualizar la asignación
       await updateDoc(ticketRef, { 
         assignedTo: assignedTo,
         assignedToName: assignedToName,
         updatedAt: Timestamp.now()
       });
-      addNotification(`Ticket asignado correctamente`, "success");
+      
+      // Enviar notificaciones por email
+      try {
+        console.log('📧 [ADMIN] Iniciando envío de notificaciones por asignación de ticket');
+        await loadEmailConfig();
+        
+        const ticketNumber = ticket.ticketNumber;
+        const ticketSubject = ticket.subject;
+        const clientName = ticket.clientName || 'Cliente';
+        const clientEmail = ticket.clientEmail;
+        const emailConfig = await loadEmailConfig();
+        const adminEmail = emailConfig?.fromEmail;
+        
+        // Email al cliente - Notificación de asignación
+        if (clientEmail && assignedTo && !oldAssignedTo) {
+          console.log('📧 [ADMIN] Enviando email al cliente por asignación:', clientEmail);
+          const clientEmailHtml = `
+            <h2>Ticket ${ticketNumber} Asignado</h2>
+            <p>Estimado/a <strong>${clientName}</strong>,</p>
+            <p>Tu ticket ha sido asignado a un agente de soporte que se encargará de resolver tu consulta.</p>
+            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p><strong>Número de Ticket:</strong> ${ticketNumber}</p>
+              <p><strong>Asunto:</strong> ${ticketSubject}</p>
+              <p><strong>Asignado a:</strong> ${assignedToName || 'Agente de Soporte'}</p>
+            </div>
+            <p>Recibirás una respuesta pronto. Puedes hacer seguimiento desde tu panel de cliente.</p>
+            <p>Saludos cordiales,<br>Equipo de Soporte</p>
+          `;
+          
+          await sendEmail({
+            to: clientEmail,
+            toName: clientName,
+            subject: `Ticket ${ticketNumber} - Asignado a Agente`,
+            html: clientEmailHtml,
+            text: `Ticket ${ticketNumber} Asignado\n\nEstimado/a ${clientName},\n\nTu ticket ha sido asignado a un agente de soporte que se encargará de resolver tu consulta.\n\nNúmero de Ticket: ${ticketNumber}\nAsunto: ${ticketSubject}\nAsignado a: ${assignedToName || 'Agente de Soporte'}\n\nRecibirás una respuesta pronto. Puedes hacer seguimiento desde tu panel de cliente.\n\nSaludos cordiales,\nEquipo de Soporte`,
+            type: 'Notificación',
+            recipientType: 'Cliente',
+            module: 'tickets',
+            event: 'ticketUpdate',
+            metadata: {
+              ticketId: ticketId,
+              ticketNumber: ticketNumber,
+              action: 'assigned',
+              assignedTo: assignedToName
+            }
+          });
+        }
+        
+        // Email al administrador - Notificación de asignación (si se desasignó)
+        if (adminEmail && !assignedTo && oldAssignedTo) {
+          console.log('📧 [ADMIN] Enviando email al administrador por desasignación');
+          const adminEmailHtml = `
+            <h2>Ticket ${ticketNumber} Desasignado</h2>
+            <p>Se ha desasignado un ticket que requiere atención.</p>
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+              <p><strong>Número de Ticket:</strong> ${ticketNumber}</p>
+              <p><strong>Cliente:</strong> ${clientName}${clientEmail ? ` (${clientEmail})` : ''}</p>
+              <p><strong>Asunto:</strong> ${ticketSubject}</p>
+              <p><strong>Estado:</strong> ${ticket.status}</p>
+              <p><strong>Prioridad:</strong> ${ticket.priority}</p>
+            </div>
+            <p>Por favor, asigna el ticket a un agente desde el panel de administración.</p>
+          `;
+          
+          await sendEmail({
+            to: adminEmail,
+            toName: emailConfig?.fromName || 'Administrador',
+            subject: `Ticket ${ticketNumber} - Desasignado`,
+            html: adminEmailHtml,
+            text: `Ticket ${ticketNumber} Desasignado\n\nSe ha desasignado un ticket que requiere atención.\n\nNúmero de Ticket: ${ticketNumber}\nCliente: ${clientName}${clientEmail ? ` (${clientEmail})` : ''}\nAsunto: ${ticketSubject}\nEstado: ${ticket.status}\nPrioridad: ${ticket.priority}\n\nPor favor, asigna el ticket a un agente desde el panel de administración.`,
+            type: 'Notificación',
+            recipientType: 'Administrador',
+            module: 'tickets',
+            event: 'ticketUpdate',
+            metadata: {
+              ticketId: ticketId,
+              ticketNumber: ticketNumber,
+              action: 'unassigned'
+            }
+          });
+        }
+        
+        console.log('✅ [ADMIN] Notificaciones por asignación completadas');
+      } catch (emailError) {
+        console.error("❌ [ADMIN] Error sending assignment notification emails:", emailError);
+        // No fallar la asignación si falla el email
+      }
+      
+      addNotification(assignedTo ? `Ticket asignado correctamente` : `Ticket desasignado correctamente`, "success");
     } catch (error) {
       console.error("Error assigning ticket:", error);
       addNotification("Error al asignar el ticket", "error");
@@ -221,12 +319,6 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
   };
 
   const handleDeleteTicket = async (ticketId) => {
-    if (isDemo) {
-      setTickets(prev => prev.filter(ticket => ticket.id !== ticketId));
-      addNotification("Ticket eliminado (modo demo)", "success");
-      return;
-    }
-
     try {
       // Eliminar el ticket
       await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId));
@@ -256,35 +348,6 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
     
     console.log('🎫 [ADMIN] handleCreateTicket llamado - Iniciando creación de ticket');
     
-    if (isDemo) {
-      console.log('⚠️ [ADMIN] Modo demo activado - saltando envío de emails');
-      const demoTicket = {
-        id: `ticket_${Date.now()}`,
-        ticketNumber: `TKT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
-        subject: newTicket.subject,
-        description: newTicket.description,
-        status: 'Abierto',
-        priority: newTicket.priority,
-        department: newTicket.department,
-        clientId: newTicket.clientId || 'demo',
-        clientName: newTicket.clientName || 'Cliente Demo',
-        clientEmail: newTicket.clientEmail || 'demo@ejemplo.com',
-        assignedTo: null,
-        assignedToName: null,
-        createdAt: { seconds: Date.now() / 1000 },
-        updatedAt: { seconds: Date.now() / 1000 },
-        lastReplyAt: { seconds: Date.now() / 1000 },
-        lastReplyBy: 'Cliente',
-        replyCount: 0,
-        attachments: []
-      };
-      setTickets(prev => [demoTicket, ...prev]);
-      addNotification("Ticket creado (modo demo)", "success");
-      setShowNewTicketModal(false);
-      setNewTicket({ subject: '', department: 'Soporte Técnico', priority: 'Media', description: '', clientId: '', clientName: '', clientEmail: '' });
-      return;
-    }
-
     try {
       console.log('🎫 [ADMIN] Creando ticket en Firestore...');
       const ticketData = {
@@ -849,7 +912,6 @@ function AdminTicketsDashboard({ isDemo, userRole }) {
                 <div className="border border-gray-200 rounded-md p-4">
                   <TicketMessagesHistory 
                     ticketId={selectedTicket.id} 
-                    isDemo={isDemo} 
                     userRole={userRole}
                     currentUser={{ uid: 'admin', displayName: 'Admin', email: 'admin@empresa.com' }}
                   />

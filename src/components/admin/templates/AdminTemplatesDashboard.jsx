@@ -4,7 +4,7 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, order
 import { db, appId } from '../../../config/firebase';
 import { PlusIcon, EditIcon, TrashIcon, SettingsIcon, BellIcon, TemplatesIcon } from '../../icons';
 
-function AdminTemplatesDashboard({ isDemo }) {
+function AdminTemplatesDashboard() {
   const { addNotification } = useNotification();
   const [templates, setTemplates] = useState([]);
   const [currentTemplate, setCurrentTemplate] = useState(null);

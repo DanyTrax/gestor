@@ -5,7 +5,7 @@ import { db, appId } from '../../config/firebase';
 import { CreditCardIcon, SearchIcon, EyeIcon, TrashIcon } from '../icons';
 import BankTransferInstructions from '../payments/BankTransferInstructions';
 
-function ClientPaymentsDashboard({ user, isDemo, userProfile }) {
+function ClientPaymentsDashboard({ user, userProfile }) {
   const { addNotification } = useNotification();
   const [payments, setPayments] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');

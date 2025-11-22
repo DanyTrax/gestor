@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { Timestamp } from 'firebase/firestore';
 
-function ServiceModal({ isOpen, onClose, onSave, service, clients, isDemo }) {
+function ServiceModal({ isOpen, onClose, onSave, service, clients }) {
   const { addNotification } = useNotification();
   const [formData, setFormData] = useState({});
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -214,11 +214,6 @@ function ServiceModal({ isOpen, onClose, onSave, service, clients, isDemo }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if(isDemo) { 
-      addNotification("Función no disponible en modo demo.", "error");
-      return; 
-    }
-    
     try {
       const dataToSave = {
         ...formData,

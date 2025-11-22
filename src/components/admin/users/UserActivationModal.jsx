@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
-import { doc, addDoc, collection, Timestamp } from 'firebase/firestore';
-import { db, appId } from '../../../config/firebase';
+import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 
-function UserActivationModal({ isOpen, onClose, user, onActivate }) {
+function UserActivationModal({ isOpen, onClose, user, onActivate, companySettings }) {
   const { addNotification } = useNotification();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,24 +25,41 @@ Equipo de Soporte`;
   const handleActivate = async () => {
     setLoading(true);
     try {
+      console.log('📧 [USUARIOS] Activando usuario y enviando notificación');
+      
       // Activar el usuario
       await onActivate();
       
-      // Registrar notificación en el historial
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messageHistory'), {
+      // Cargar configuración de email
+      await loadEmailConfig();
+      
+      // Preparar mensaje
+      const emailMessage = message || defaultMessage;
+      const emailSubject = `Cuenta Activada - ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
+      
+      // Enviar email usando el servicio
+      await sendEmail({
         to: user.email,
-        subject: 'Cuenta Activada - Sistema de Gestión de Cobros',
-        body: message || defaultMessage,
-        reason: 'Activación de Usuario',
-        sentAt: Timestamp.now(),
-        type: 'activation'
+        toName: user.fullName || user.email,
+        subject: emailSubject,
+        html: emailMessage.replace(/\n/g, '<br>'),
+        text: emailMessage,
+        type: 'Activación',
+        recipientType: 'Cliente',
+        module: 'users',
+        event: 'userActivation',
+        metadata: {
+          userId: user.id,
+          userEmail: user.email,
+          userRole: user.role
+        }
       });
 
       addNotification(`Usuario ${user.email} activado y notificado exitosamente`, "success");
       onClose();
     } catch (error) {
-      addNotification("Error al activar usuario", "error");
       console.error("Error activating user:", error);
+      addNotification(`Error al activar usuario: ${error.message}`, "error");
     } finally {
       setLoading(false);
     }

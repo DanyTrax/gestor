@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 
-function CreateUserModal({ isOpen, onClose, onSave, isDemo }) {
+function CreateUserModal({ isOpen, onClose, onSave }) {
   const { addNotification } = useNotification();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
