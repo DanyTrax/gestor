@@ -21,7 +21,22 @@ export function setupConsoleErrorFilter() {
   ];
 
   console.error = function(...args) {
-    const message = args.join(' ');
+    // Convertir todos los argumentos a string de forma segura
+    let message = '';
+    try {
+      message = args.map(arg => {
+        if (typeof arg === 'string') return arg;
+        if (arg instanceof Error) return arg.message + ' ' + arg.stack;
+        try {
+          return JSON.stringify(arg);
+        } catch {
+          return String(arg);
+        }
+      }).join(' ');
+    } catch {
+      message = String(args);
+    }
+    
     const shouldIgnore = ignoredErrors.some(ignored => message.includes(ignored));
     
     if (!shouldIgnore) {
@@ -30,7 +45,22 @@ export function setupConsoleErrorFilter() {
   };
 
   console.warn = function(...args) {
-    const message = args.join(' ');
+    // Convertir todos los argumentos a string de forma segura
+    let message = '';
+    try {
+      message = args.map(arg => {
+        if (typeof arg === 'string') return arg;
+        if (arg instanceof Error) return arg.message + ' ' + arg.stack;
+        try {
+          return JSON.stringify(arg);
+        } catch {
+          return String(arg);
+        }
+      }).join(' ');
+    } catch {
+      message = String(args);
+    }
+    
     const shouldIgnore = ignoredErrors.some(ignored => message.includes(ignored));
     
     if (!shouldIgnore) {

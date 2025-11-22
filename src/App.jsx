@@ -16,7 +16,15 @@ import CompleteProfileModal from './components/auth/CompleteProfileModal';
 import InitialSetup from './components/setup/InitialSetup';
 
 // Filtrar errores benignos de extensiones del navegador
-setupConsoleErrorFilter();
+// Solo en el navegador, no en Node.js
+if (typeof window !== 'undefined') {
+  try {
+    setupConsoleErrorFilter();
+  } catch (error) {
+    // Si hay un error al configurar el filtro, no romper la aplicación
+    console.warn('No se pudo configurar el filtro de errores:', error);
+  }
+}
 
 function AppContent() {
   const { addNotification } = useNotification();
