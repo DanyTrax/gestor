@@ -36,22 +36,6 @@ function ClientPaymentsDashboard({ user, userProfile }) {
 
   // Cargar configuraciones de medios de pago
   useEffect(() => {
-    if (isDemo) {
-      setPaymentConfig({
-        gateways: {
-          bold: { enabled: true, name: 'Bold', autoApprove: false },
-          paypal: { enabled: true, name: 'PayPal', autoApprove: false },
-          payu: { enabled: true, name: 'PayU', autoApprove: false },
-          bankTransfer: { enabled: true, name: 'Transferencia Bancaria', autoApprove: false }
-        },
-        bankAccounts: [
-          { id: '1', bank: 'Banco Nacional', accountNumber: '1234567890', accountHolder: 'Mi Empresa' },
-          { id: '2', bank: 'Banco Popular', accountNumber: '0987654321', accountHolder: 'Mi Empresa' }
-        ]
-      });
-      return;
-    }
-
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'paymentConfig');
     const unsubscribe = onSnapshot(configRef, (doc) => {
       if (doc.exists()) {
@@ -74,70 +58,9 @@ function ClientPaymentsDashboard({ user, userProfile }) {
     });
 
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   useEffect(() => {
-    if (isDemo) {
-      setPayments([
-        {
-          id: 'demo1',
-          serviceNumber: 'SRV-241017-123456',
-          serviceType: 'Hosting',
-          amount: 10.99,
-          currency: 'USD',
-          status: 'Completado',
-          gateway: 'Bold',
-          transactionId: 'bold_txn_123456',
-          createdAt: { seconds: Date.now() / 1000 - 86400 },
-          completedAt: { seconds: Date.now() / 1000 - 3600 }
-        },
-        {
-          id: 'demo2',
-          serviceNumber: 'SRV-241017-789012',
-          serviceType: 'Dominio',
-          amount: 25.00,
-          currency: 'USD',
-          status: 'Pendiente',
-          gateway: 'PayPal',
-          transactionId: 'paypal_txn_789012',
-          createdAt: { seconds: Date.now() / 1000 - 7200 }
-        },
-        {
-          id: 'demo3',
-          serviceNumber: 'SRV-241017-345678',
-          serviceType: 'Hosting Premium',
-          amount: 50.00,
-          currency: 'USD',
-          status: 'Completado',
-          gateway: 'Transferencia Bancaria',
-          transactionId: 'TRF-123456789',
-          createdAt: { seconds: Date.now() / 1000 - 10800 },
-          completedAt: { seconds: Date.now() / 1000 - 9000 }
-        }
-      ]);
-      
-      // Datos de demo para cuentas bancarias
-      setBankAccounts([
-        {
-          id: '1',
-          bankName: 'Banco Nacional',
-          accountNumber: '1234567890',
-          accountHolder: 'Empresa Demo',
-          accountType: 'Ahorros'
-        },
-        {
-          id: '2',
-          bankName: 'Banco Popular',
-          accountNumber: '0987654321',
-          accountHolder: 'Empresa Demo',
-          accountType: 'Corriente'
-        }
-      ]);
-      
-      setLoading(false);
-      return;
-    }
-
     if (!user?.uid) {
       setLoading(false);
       return;
@@ -173,12 +96,10 @@ function ClientPaymentsDashboard({ user, userProfile }) {
     });
 
     return () => unsubscribe();
-  }, [user?.uid, isDemo, addNotification]);
+  }, [user?.uid, addNotification]);
 
   // Cargar cuentas bancarias
   useEffect(() => {
-    if (isDemo) return;
-
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'paymentConfig');
     const unsubscribe = onSnapshot(configRef, (doc) => {
       if (doc.exists()) {
@@ -190,7 +111,7 @@ function ClientPaymentsDashboard({ user, userProfile }) {
     });
 
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   const filteredPayments = payments.filter(payment => {
     // Filtro de búsqueda - más permisivo

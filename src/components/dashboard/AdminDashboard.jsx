@@ -27,8 +27,8 @@ function AdminDashboard({ user, userRole, companySettings, onLogout }) {
     const initialHash = (window.location.hash || '').replace('#', '');
     if (validTabs.includes(initialHash)) {
       setActiveTab(initialHash);
-    } else if (!window.location.hash) {
-      // Si no hay hash, establecer el por defecto sin disparar hashchange
+    } else if (!window.location.hash || window.location.hash === '#') {
+      // Si no hay hash o es solo '#', establecer el por defecto sin agregar al historial
       window.history.replaceState(null, '', '#services');
       setActiveTab('services');
     }
@@ -39,14 +39,30 @@ function AdminDashboard({ user, userRole, companySettings, onLogout }) {
     return () => window.removeEventListener('hashchange', applyHash);
   }, []); // Solo ejecutar una vez al montar
 
-  // Actualizar URL cuando cambia la pestaña activa (solo si el hash es diferente)
+  // Actualizar URL cuando cambia la pestaña activa
   useEffect(() => {
     const currentHash = (window.location.hash || '').replace('#', '');
     if (activeTab && currentHash !== activeTab) {
-      // Usar replaceState para evitar agregar entrada al historial
-      window.history.replaceState(null, '', `#${activeTab}`);
+      // Usar pushState para que el botón "Atrás" funcione correctamente
+      window.history.pushState(null, '', `#${activeTab}`);
     }
   }, [activeTab]);
+
+  // Manejar el botón "Atrás" del navegador
+  useEffect(() => {
+    const handlePopState = (e) => {
+      const hash = (window.location.hash || '').replace('#', '');
+      const validTabs = ['services', 'users', 'templates', 'messages', 'payments', 'tickets', 'payment-config', 'settings'];
+      if (validTabs.includes(hash)) {
+        setActiveTab(hash);
+      } else {
+        setActiveTab('services');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const renderTabContent = () => {
     switch (activeTab) {

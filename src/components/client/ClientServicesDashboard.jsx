@@ -85,12 +85,6 @@ function ClientServicesDashboard({ user, userProfile }) {
 
   // Generar pago pendiente para un servicio
   const generatePayment = async (service) => {
-    if (isDemo) {
-      addNotification('Solicitud de pago creada exitosamente (modo demo)', 'success');
-      setConfirmationModal({ isOpen: false, service: null });
-      return;
-    }
-
     setGeneratingPayments(prev => new Set(prev).add(service.id));
 
     try {
@@ -208,11 +202,6 @@ function ClientServicesDashboard({ user, userProfile }) {
 
   // Cargar pagos pendientes/procesando para deshabilitar botones
   useEffect(() => {
-    if (isDemo) {
-      setPendingPayments(new Set(['demo1', 'demo2'])); // Simular pagos pendientes en demo
-      return;
-    }
-
     if (!user?.uid) return;
 
     const paymentsQuery = query(
@@ -236,19 +225,10 @@ function ClientServicesDashboard({ user, userProfile }) {
     });
 
     return () => unsubscribe();
-  }, [user?.uid, isDemo]);
+  }, [user?.uid]);
 
   // Cargar configuración de pagos
   useEffect(() => {
-    if (isDemo) {
-      setPaymentConfig({
-        gateways: {
-          bankTransfer: { enabled: true, name: 'Transferencia Bancaria', autoApprove: false }
-        }
-      });
-      return;
-    }
-
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'paymentConfig');
     const unsubscribe = onSnapshot(configRef, (snap) => {
       if (snap.exists()) {
@@ -263,20 +243,10 @@ function ClientServicesDashboard({ user, userProfile }) {
       }
     });
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   // Cargar configuración de renovaciones (recordatorios y gracia)
   useEffect(() => {
-    if (isDemo) {
-      setRenewalConfig({
-        renewalSettings: {
-          reminderDays: 10,
-          gracePeriodDays: 7
-        }
-      });
-      return;
-    }
-
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'renewalConfig');
     const unsubscribe = onSnapshot(configRef, (snap) => {
       if (snap.exists()) {
@@ -284,7 +254,7 @@ function ClientServicesDashboard({ user, userProfile }) {
       }
     });
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   const getDaysUntilDue = (service) => {
     // Aplica solo a servicios de ciclo
@@ -298,7 +268,6 @@ function ClientServicesDashboard({ user, userProfile }) {
 
   // Mantenimiento automático: crear/cancelar solicitudes según ventana de recordatorio y gracia
   useEffect(() => {
-    if (isDemo) return;
     if (!renewalConfig?.renewalSettings) return;
     if (!user?.uid) return;
 
@@ -344,41 +313,9 @@ function ClientServicesDashboard({ user, userProfile }) {
 
     process();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [services, renewalConfig, pendingPayments, pendingPaymentsByService, user?.uid, isDemo]);
+  }, [services, renewalConfig, pendingPayments, pendingPaymentsByService, user?.uid]);
 
   useEffect(() => {
-    if (isDemo) {
-      // Datos de demo
-      setServices([
-        {
-          id: 'demo1',
-          serviceNumber: 'SRV-241017-123456',
-          serviceType: 'Hosting',
-          description: 'Plan Básico - 1GB',
-          amount: 10.99,
-          currency: 'USD',
-          status: 'Activo',
-          dueDate: { seconds: Date.now() / 1000 + 30 * 24 * 60 * 60 },
-          billingCycle: 'Monthly',
-          clientNotes: 'Servicio de hosting básico'
-        },
-        {
-          id: 'demo2',
-          serviceNumber: 'SRV-241017-789012',
-          serviceType: 'Dominio',
-          description: 'midominio.com',
-          amount: 15.00,
-          currency: 'USD',
-          status: 'Pendiente Pago',
-          dueDate: { seconds: Date.now() / 1000 + 10 * 24 * 60 * 60 },
-          billingCycle: 'Annually',
-          clientNotes: 'Renovación de dominio'
-        }
-      ]);
-      setLoading(false);
-      return;
-    }
-
     if (!user?.uid) {
       setLoading(false);
       return;
@@ -412,7 +349,7 @@ function ClientServicesDashboard({ user, userProfile }) {
     });
 
     return () => unsubscribe();
-  }, [user?.uid, isDemo, addNotification]);
+  }, [user?.uid, addNotification]);
 
   const getStatusColor = (status) => {
     const statusMap = {

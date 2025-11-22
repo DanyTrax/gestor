@@ -121,14 +121,6 @@ function AdminTemplatesDashboard() {
 
   // Cargar administradores
   useEffect(() => {
-    if (isDemo) {
-      setAdmins([
-        { id: 'admin1', email: 'admin@demo.com', fullName: 'Admin Demo', role: 'admin' },
-        { id: 'super1', email: 'super@demo.com', fullName: 'Super Admin Demo', role: 'superadmin' }
-      ]);
-      return;
-    }
-
     const usersCollection = collection(db, 'artifacts', appId, 'public', 'data', 'users');
     const unsubscribe = onSnapshot(
       query(usersCollection, where('role', 'in', ['admin', 'superadmin'])),
@@ -137,49 +129,10 @@ function AdminTemplatesDashboard() {
       }
     );
     return unsubscribe;
-  }, [isDemo]);
+  }, []);
 
   // Cargar configuraciones de alertas
   useEffect(() => {
-    if (isDemo) {
-      // Configuración de demo
-      setAlertSettings({
-        preVencimiento: {
-          enabled: true,
-          days: 7,
-          clientTemplate: 't1',
-          adminTemplate: 't1',
-          notifyAdmins: true,
-          selectedAdmins: ['admin1']
-        },
-        periodoGracia: {
-          enabled: true,
-          days: 3,
-          clientTemplate: 't2',
-          adminTemplate: 't2',
-          notifyAdmins: true,
-          selectedAdmins: ['admin1']
-        },
-        vencido: {
-          enabled: true,
-          days: 0,
-          clientTemplate: 't2',
-          adminTemplate: 't2',
-          notifyAdmins: true,
-          selectedAdmins: ['admin1']
-        },
-        suspendido: {
-          enabled: false,
-          days: 0,
-          clientTemplate: '',
-          adminTemplate: '',
-          notifyAdmins: false,
-          selectedAdmins: []
-        }
-      });
-      return;
-    }
-
     const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'alertSettings');
     const unsubscribe = onSnapshot(settingsRef, (doc) => {
       if (doc.exists()) {
@@ -187,35 +140,15 @@ function AdminTemplatesDashboard() {
       }
     });
     return unsubscribe;
-  }, [isDemo]);
+  }, []);
 
   useEffect(() => {
-    if (isDemo) {
-      setTemplates([
-        { 
-          id: 't1', 
-          name: 'Recordatorio General (Demo)', 
-          subject: 'Recordatorio de pago', 
-          body: 'Hola {clientName}, recuerda pagar tu servicio {description} por {amount} {currency} antes del {dueDate}. Gracias, {companyName}',
-          createdAt: new Date()
-        },
-        { 
-          id: 't2', 
-          name: 'Servicio Vencido (Demo)', 
-          subject: 'Servicio vencido: {description}', 
-          body: 'Estimado {clientName}, su servicio {description} ha vencido. Por favor regularice su pago de {amount} {currency}. Atentamente, {companyName}',
-          createdAt: new Date()
-        }
-      ]);
-      return;
-    }
-    
     const templatesCollection = collection(db, 'artifacts', appId, 'public', 'data', 'messageTemplates');
     const unsubscribe = onSnapshot(query(templatesCollection, orderBy('name')), snapshot => {
       setTemplates(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
     return unsubscribe;
-  }, [isDemo]);
+  }, []);
   
   useEffect(() => {
     if (currentTemplate) {
@@ -232,11 +165,6 @@ function AdminTemplatesDashboard() {
   }, [currentTemplate]);
 
   const handleSaveTemplate = async () => {
-    if (isDemo) { 
-      addNotification('Función no disponible en modo demo.', "error"); 
-      return; 
-    }
-    
     if (!name.trim() || !subject.trim() || !body.trim()) {
       addNotification("Por favor, complete todos los campos de la plantilla.", "error");
       return;
@@ -267,11 +195,6 @@ function AdminTemplatesDashboard() {
   };
   
   const handleDeleteTemplate = async (id) => {
-    if (isDemo) { 
-      addNotification('Función no disponible en modo demo.', "error"); 
-      return; 
-    }
-    
     if (window.confirm("¿Seguro que quieres eliminar esta plantilla?")) {
       try {
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'messageTemplates', id));
@@ -321,11 +244,6 @@ function AdminTemplatesDashboard() {
   };
 
   const saveAlertSettings = async () => {
-    if (isDemo) {
-      addNotification('Configuración de alertas guardada (modo demo).', "success");
-      return;
-    }
-
     try {
       const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'alertSettings');
       await setDoc(settingsRef, alertSettings, { merge: true });

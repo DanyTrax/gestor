@@ -24,26 +24,6 @@ function ClientRenewalDashboard({ user, userProfile }) {
 
   // Cargar configuraciones de renovación
   useEffect(() => {
-    if (isDemo) {
-      setRenewalConfig({
-        discounts: {
-          monthly: { enabled: false, percentage: 0 },
-          quarterly: { enabled: true, percentage: 5 },
-          semiAnnual: { enabled: true, percentage: 10 },
-          annual: { enabled: true, percentage: 15 },
-          biennial: { enabled: true, percentage: 25 },
-          triennial: { enabled: true, percentage: 35 }
-        },
-        taxSettings: {
-          ivaEnabled: true,
-          ivaPercentage: 19,
-          ivaIncluded: false,
-          taxName: 'IVA'
-        }
-      });
-      return;
-    }
-
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'renewalConfig');
     const unsubscribe = onSnapshot(configRef, (doc) => {
       if (doc.exists()) {
@@ -73,7 +53,7 @@ function ClientRenewalDashboard({ user, userProfile }) {
     });
 
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   // Detectar servicio seleccionado desde servicios
   useEffect(() => {
@@ -102,7 +82,7 @@ function ClientRenewalDashboard({ user, userProfile }) {
 
   // Cargar renovaciones pendientes
   useEffect(() => {
-    if (isDemo || !user?.uid) return;
+    if (!user?.uid) return;
 
     const pendingRenewalsQuery = query(
       collection(db, 'artifacts', appId, 'public', 'data', 'payments'),
@@ -125,7 +105,7 @@ function ClientRenewalDashboard({ user, userProfile }) {
     });
 
     return () => unsubscribe();
-  }, [user?.uid, isDemo]);
+  }, [user?.uid]);
 
   // Calcular fecha de vencimiento basada en el ciclo
   const calculateExpirationDate = (service) => {
@@ -171,67 +151,6 @@ function ClientRenewalDashboard({ user, userProfile }) {
   };
 
   useEffect(() => {
-    if (isDemo) {
-      setServices([
-        {
-          id: 'demo1',
-          serviceNumber: 'SRV-241017-123456',
-          serviceType: 'Hosting Básico',
-          description: 'Plan Básico - 1GB',
-          amount: 50000,
-          currency: 'COP',
-          status: 'Activo',
-          dueDate: { seconds: Date.now() / 1000 + 30 * 24 * 60 * 60 },
-          billingCycle: 'Monthly',
-          clientNotes: 'Servicio de hosting básico'
-        },
-        {
-          id: 'demo2',
-          serviceNumber: 'SRV-241017-789012',
-          serviceType: 'Dominio',
-          description: 'midominio.com',
-          amount: 150000,
-          currency: 'COP',
-          status: 'Activo',
-          dueDate: { seconds: Date.now() / 1000 + 10 * 24 * 60 * 60 },
-          billingCycle: 'Annually',
-          clientNotes: 'Renovación de dominio'
-        }
-      ]);
-      
-      setRenewalConfig({
-        renewalSettings: {
-          enabled: true,
-          maxRenewalYears: 3,
-          autoRenewal: true,
-          gracePeriodDays: 7,
-          reminderDays: 3
-        },
-        discounts: {
-          monthly: { enabled: false, discount: 0, description: 'Descuento por pago mensual' },
-          quarterly: { enabled: true, discount: 5, description: 'Descuento por pago trimestral' },
-          semiAnnual: { enabled: true, discount: 10, description: 'Descuento por pago semestral' },
-          annual: { enabled: true, discount: 15, description: 'Descuento por pago anual' },
-          biennial: { enabled: true, discount: 25, description: 'Descuento por pago bienal (2 años)' },
-          triennial: { enabled: true, discount: 35, description: 'Descuento por pago trienal (3 años)' }
-        },
-        taxSettings: {
-          ivaEnabled: true,
-          ivaPercentage: 19,
-          ivaIncluded: false,
-          taxName: 'IVA'
-        },
-        pricingSettings: {
-          roundToNearest: 100,
-          minimumAmount: 1000,
-          maximumAmount: 10000000
-        }
-      });
-      
-      setLoading(false);
-      return;
-    }
-
     if (!user?.uid) {
       setLoading(false);
       return;
@@ -267,7 +186,7 @@ function ClientRenewalDashboard({ user, userProfile }) {
       unsubscribeServices();
       unsubscribeConfig();
     };
-  }, [user?.uid, isDemo, addNotification]);
+  }, [user?.uid, addNotification]);
 
   const calculateDiscountedPrice = (originalPrice, period) => {
     if (!renewalConfig?.discounts?.[period]?.enabled) return originalPrice;
@@ -393,28 +312,14 @@ function ClientRenewalDashboard({ user, userProfile }) {
   // Configuración de pasarelas de pago
   const [paymentConfig, setPaymentConfig] = useState(null);
   useEffect(() => {
-    if (isDemo) {
-      setPaymentConfig({
-        gateways: {
-          bankTransfer: { enabled: true, name: 'Transferencia Bancaria' }
-        }
-      });
-      return;
-    }
     const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'paymentConfig');
     const unsubscribe = onSnapshot(configRef, (doc) => {
       if (doc.exists()) setPaymentConfig(doc.data());
     });
     return () => unsubscribe();
-  }, [isDemo]);
+  }, []);
 
   const handleRenewal = async (service, period) => {
-    if (isDemo) {
-      const actionText = getRenewalActionText(service, period);
-      addNotification(`${actionText} ${renewalPeriods.find(p => p.key === period)?.label} iniciada (modo demo)`, "success");
-      return;
-    }
-
     // Verificar si ya hay una renovación pendiente para este servicio
     if (pendingRenewals.has(service.id)) {
       addNotification('Ya tienes una solicitud de renovación pendiente para este servicio', 'warning');
