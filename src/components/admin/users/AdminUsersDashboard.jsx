@@ -84,12 +84,29 @@ function AdminUsersDashboard({ userRole, companySettings }) {
       const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
       await setDoc(userDocRef, userDocData);
       
-      // Enviar notificación de email si está habilitado
+      // IMPORTANTE: Cerrar sesión del nuevo usuario INMEDIATAMENTE después de crear el documento
+      // Firebase Auth automáticamente inicia sesión cuando se crea un usuario
+      // Debemos cerrar sesión ANTES de que App.jsx intente cargar el perfil del nuevo usuario
+      // y ANTES de enviar los emails para evitar errores de permisos
+      const currentUserAfterCreation = auth.currentUser;
+      let shouldReauth = false;
+      if (currentUserAfterCreation && currentUserAfterCreation.uid === user.uid) {
+        // El usuario actual es el nuevo usuario creado, cerrar sesión inmediatamente
+        // Esto previene que App.jsx intente cargar el perfil del nuevo usuario
+        signOut(auth).catch(err => {
+          console.error('Error al cerrar sesión del nuevo usuario:', err);
+        });
+        console.log('✅ Sesión del nuevo usuario cerrada inmediatamente');
+        shouldReauth = true;
+      }
+      
+      // Enviar notificación de email si está habilitado (después de cerrar sesión)
       if (userData.notify) {
         try {
           console.log('📧 [USUARIOS] Enviando email de bienvenida y reset de contraseña al nuevo usuario');
           
           // Enviar email de reset de contraseña de Firebase (esto genera un enlace seguro)
+          // Esto funciona incluso si el usuario no está autenticado
           await sendPasswordResetEmail(auth, userData.email, {
             url: `${window.location.origin}`,
             handleCodeInApp: false
@@ -156,25 +173,25 @@ ${companySettings?.companyName || 'Sistema de Gestión'}`;
             }
           });
           
-          addNotification(`Usuario ${userData.email} creado exitosamente. Emails de bienvenida y creación de contraseña enviados.`, "success");
+          if (shouldReauth) {
+            addNotification(`Usuario ${userData.email} creado exitosamente. Emails enviados. Por favor, vuelve a iniciar sesión como administrador.`, "success");
+          } else {
+            addNotification(`Usuario ${userData.email} creado exitosamente. Emails de bienvenida y creación de contraseña enviados.`, "success");
+          }
         } catch (emailError) {
           console.error('Error enviando emails:', emailError);
-          addNotification(`Usuario ${userData.email} creado exitosamente, pero no se pudieron enviar los emails: ${emailError.message}`, "warning");
+          if (shouldReauth) {
+            addNotification(`Usuario ${userData.email} creado exitosamente, pero no se pudieron enviar los emails: ${emailError.message}. Por favor, vuelve a iniciar sesión como administrador.`, "warning");
+          } else {
+            addNotification(`Usuario ${userData.email} creado exitosamente, pero no se pudieron enviar los emails: ${emailError.message}`, "warning");
+          }
         }
       } else {
-        addNotification(`Usuario ${userData.email} creado exitosamente con contraseña temporal.`, "success");
-      }
-      
-      // IMPORTANTE: Cerrar sesión del nuevo usuario para que el admin no quede autenticado como él
-      // Firebase Auth automáticamente inicia sesión cuando se crea un usuario
-      // Verificar si el usuario actual es el nuevo usuario (no el admin)
-      const currentUserAfterCreation = auth.currentUser;
-      if (currentUserAfterCreation && currentUserAfterCreation.uid === user.uid) {
-        // El usuario actual es el nuevo usuario creado, cerrar sesión
-        await signOut(auth);
-        console.log('✅ Sesión del nuevo usuario cerrada');
-        // Nota: El admin necesitará volver a iniciar sesión
-        // Esto se manejará automáticamente por App.jsx cuando detecte que no hay usuario autenticado
+        if (shouldReauth) {
+          addNotification(`Usuario ${userData.email} creado exitosamente con contraseña temporal. Por favor, vuelve a iniciar sesión como administrador.`, "success");
+        } else {
+          addNotification(`Usuario ${userData.email} creado exitosamente con contraseña temporal.`, "success");
+        }
       }
       
     } catch (error) {

@@ -154,12 +154,21 @@ function AppContent() {
         }, (error) => {
           console.error("Error fetching user data:", error);
           if (error.code === 'permission-denied') {
-            console.error('🔐 Error de permisos de Firestore al obtener datos del usuario.');
-            console.error('📋 Verifica que las reglas de Firestore permitan lectura/escritura para usuarios autenticados.');
-            addNotification("Error de permisos al acceder a datos del usuario. Verifica las reglas de Firestore.", "error");
+            // Si hay error de permisos, podría ser porque:
+            // 1. El usuario recién creado no tiene permisos aún
+            // 2. Las reglas de Firestore no permiten lectura
+            // En este caso, simplemente cerrar sesión sin mostrar error molesto
+            console.warn('🔐 Error de permisos al obtener datos del usuario. Cerrando sesión...');
+            signOut(auth).catch(err => {
+              console.error('Error al cerrar sesión:', err);
+            });
+            // No mostrar notificación de error aquí, ya que podría ser un usuario recién creado
+            setLoading(false);
+            return;
           }
-          // Solo mostrar error si el usuario sigue autenticado
+          // Solo mostrar error si el usuario sigue autenticado y no es un error de permisos
           if (currentUser) {
+            console.error('📋 Verifica que las reglas de Firestore permitan lectura/escritura para usuarios autenticados.');
             addNotification("Error al cargar el perfil de usuario. Intenta nuevamente.", "error");
           }
           setLoading(false);
