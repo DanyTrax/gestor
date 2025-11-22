@@ -6,6 +6,7 @@ import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 import { auth, db, appId } from '../../../config/firebase';
 import { getTemplateByName } from '../../../utils/initializePasswordTemplates';
 import { replaceTemplateVariables } from '../../../utils/templateVariables';
+import { createPasswordResetToken } from '../../../utils/passwordResetToken';
 import { PlusIcon, SearchIcon } from '../../icons';
 import ActionDropdown from '../../common/ActionDropdown';
 import UserModal from './UserModal';
@@ -104,25 +105,16 @@ function AdminUsersDashboard({ userRole, companySettings }) {
         try {
           console.log('📧 [USUARIOS] Enviando email de bienvenida y reset de contraseña al nuevo usuario');
           
-          // Generar enlace de reset de contraseña usando nuestro endpoint (sin exponer Firebase)
+          // Generar token personalizado para restablecimiento de contraseña
           let resetLink = null;
           try {
-            const { generatePasswordResetLink } = await import('../../../utils/generateResetLink');
-            resetLink = await generatePasswordResetLink(userData.email);
-            console.log('✅ Enlace de reset generado exitosamente');
-          } catch (resetError) {
-            console.error('Error generando enlace de reset:', resetError);
-            // Si falla, intentar con Firebase directamente como fallback
-            try {
-              await sendPasswordResetEmail(auth, userData.email, {
-                url: `${window.location.origin}${window.location.pathname}`,
-                handleCodeInApp: true
-              });
-              addNotification('⚠️ Se envió un email de Firebase con el enlace de restablecimiento. Revisa tu correo.', "warning");
-            } catch (firebaseError) {
-              console.error('Error con Firebase fallback:', firebaseError);
-              addNotification(`⚠️ No se pudo generar el enlace de restablecimiento. El usuario fue creado.`, "warning");
-            }
+            const token = await createPasswordResetToken(user.uid, userData.email, 24); // 24 horas de validez
+            const loginUrl = `${window.location.origin}${window.location.pathname}`;
+            resetLink = `${loginUrl}?token=${token}`;
+            console.log('✅ Token de reset generado exitosamente');
+          } catch (tokenError) {
+            console.error('Error generando token de reset:', tokenError);
+            addNotification(`⚠️ No se pudo generar el token de restablecimiento. El usuario fue creado.`, "warning");
           }
           
           // Cargar configuración de email

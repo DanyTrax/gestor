@@ -24,7 +24,7 @@ Para completar tu registro y acceder al sistema, necesitas crear tu contraseña 
 
 📝 INSTRUCCIONES PASO A PASO:
 
-1. Haz clic en el siguiente enlace para crear tu contraseña:
+1. Haz clic en el siguiente enlace para crear tu contraseña (este enlace es único y seguro):
    {resetPasswordUrl}
 
 2. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)
@@ -76,7 +76,7 @@ Para acceder al sistema, necesitas crear o cambiar tu contraseña.
 
 📝 INSTRUCCIONES PASO A PASO:
 
-1. Haz clic en el siguiente enlace para crear/cambiar tu contraseña:
+1. Haz clic en el siguiente enlace para crear/cambiar tu contraseña (este enlace es único y seguro):
    {resetPasswordUrl}
 
 2. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)
@@ -122,7 +122,7 @@ Has solicitado restablecer tu contraseña en {companyName}.
 
 📝 INSTRUCCIONES:
 
-1. Haz clic en el siguiente enlace para restablecer tu contraseña:
+1. Haz clic en el siguiente enlace para restablecer tu contraseña (este enlace es único y seguro):
    {resetPasswordUrl}
 
 2. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)

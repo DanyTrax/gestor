@@ -495,7 +495,7 @@ function AdminMessagesDashboard({ userRole }) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Contenido del Mensaje</label>
                 <div className="text-sm text-gray-900 p-4 bg-gray-50 rounded-md whitespace-pre-wrap max-h-64 overflow-y-auto">
-                  {selectedMessage.message}
+                  {selectedMessage.html || selectedMessage.text || selectedMessage.body || selectedMessage.message || 'Sin contenido'}
                 </div>
               </div>
 

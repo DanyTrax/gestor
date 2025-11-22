@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
-import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, doc, getDoc } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
 import { sendEmail, loadEmailConfig } from '../../../services/emailService';
-import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../../config/firebase';
 import { getTemplateByName } from '../../../utils/initializePasswordTemplates';
 import { replaceTemplateVariables } from '../../../utils/templateVariables';
+import { createPasswordResetToken } from '../../../utils/passwordResetToken';
 
 function UserNotificationModal({ isOpen, onClose, user, companySettings }) {
   const { addNotification } = useNotification();
@@ -165,25 +165,24 @@ ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
     try {
       console.log('📧 [USUARIOS] Enviando notificación de activación y reset de contraseña al usuario');
       
-      // Generar enlace de reset de contraseña usando nuestro endpoint (sin exponer Firebase)
+      // Generar token personalizado para restablecimiento de contraseña
       let resetLink = null;
       try {
-        const { generatePasswordResetLink } = await import('../../../utils/generateResetLink');
-        resetLink = await generatePasswordResetLink(user.email);
-        console.log('✅ Enlace de reset generado exitosamente');
-      } catch (resetError) {
-        console.error('Error generando enlace de reset:', resetError);
-        // Si falla, intentar con Firebase directamente como fallback
-        try {
-          await sendPasswordResetEmail(auth, user.email, {
-            url: `${window.location.origin}${window.location.pathname}`,
-            handleCodeInApp: true
-          });
-          console.log('✅ Email de reset enviado por Firebase (fallback)');
-        } catch (firebaseError) {
-          console.error('Error con Firebase fallback:', firebaseError);
-          addNotification('⚠️ No se pudo generar el enlace de restablecimiento. El email de notificación se enviará de todas formas.', "warning");
+        // Obtener el userId del usuario desde Firestore
+        const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.id);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const token = await createPasswordResetToken(user.id, user.email, 24); // 24 horas de validez
+          const loginUrl = `${window.location.origin}${window.location.pathname}`;
+          resetLink = `${loginUrl}?token=${token}`;
+          console.log('✅ Token de reset generado exitosamente');
+        } else {
+          throw new Error('Usuario no encontrado en Firestore');
         }
+      } catch (tokenError) {
+        console.error('Error generando token de reset:', tokenError);
+        addNotification('⚠️ No se pudo generar el token de restablecimiento. El email de notificación se enviará de todas formas.', "warning");
       }
       
       // Cargar configuración de email
