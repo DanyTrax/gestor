@@ -202,7 +202,7 @@ function AdminPaymentsDashboard({ userRole }) {
       // Header
       pdf.setFontSize(24);
       pdf.setTextColor(37, 99, 235); // Blue
-      pdf.text('Gestor de Cobros', 105, yPos, { align: 'center' });
+      pdf.text('App Gestor', 105, yPos, { align: 'center' });
       yPos += 10;
       pdf.setFontSize(18);
       pdf.setTextColor(102, 102, 102);

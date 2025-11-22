@@ -13,7 +13,7 @@ function UserActivationModal({ isOpen, onClose, user, onActivate, companySetting
 
   const defaultMessage = `Hola ${user?.fullName || user?.email},
 
-Tu cuenta ha sido activada exitosamente en nuestro sistema de gestión de cobros.
+Tu cuenta ha sido activada exitosamente en App Gestor.
 
 Ahora puedes:
 • Ver tus servicios contratados
@@ -62,7 +62,7 @@ Equipo de Soporte`;
         const replacements = {
           '{clientName}': user?.fullName || user?.email || '',
           '{clientEmail}': user?.email || '',
-          '{companyName}': companySettings?.companyName || 'Sistema de Gestión de Cobros'
+          '{companyName}': companySettings?.companyName || 'App Gestor'
         };
         
         Object.entries(replacements).forEach(([key, value]) => {
@@ -99,7 +99,7 @@ Equipo de Soporte`;
           const replacements = {
             '{clientName}': user?.fullName || user?.email || '',
             '{clientEmail}': user?.email || '',
-            '{companyName}': companySettings?.companyName || 'Sistema de Gestión de Cobros'
+            '{companyName}': companySettings?.companyName || 'App Gestor'
           };
           Object.entries(replacements).forEach(([key, value]) => {
             templateSubject = templateSubject.replace(new RegExp(key, 'g'), value);

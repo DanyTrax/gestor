@@ -217,7 +217,7 @@ function ClientPaymentsDashboard({ user, userProfile }) {
       <body>
         <div class="invoice">
           <div class="header">
-            <div class="company-name">Gestor de Cobros</div>
+            <div class="company-name">App Gestor</div>
             <div class="invoice-title">FACTURA</div>
           </div>
           

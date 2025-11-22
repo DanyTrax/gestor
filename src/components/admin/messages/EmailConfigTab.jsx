@@ -254,7 +254,7 @@ function EmailConfigTab() {
                     name="fromName"
                     value={config.fromName}
                     onChange={handleChange}
-                    placeholder="Gestor de Cobros"
+                    placeholder="App Gestor"
                     className="w-full p-2 border rounded-md"
                   />
                 </div>
@@ -347,7 +347,7 @@ function EmailConfigTab() {
                 name="fromName"
                 value={config.fromName}
                 onChange={handleChange}
-                placeholder="Gestor de Cobros"
+                placeholder="App Gestor"
                 className="w-full p-2 border rounded-md"
               />
             </div>

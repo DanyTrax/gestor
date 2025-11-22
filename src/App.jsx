@@ -34,7 +34,7 @@ function AppContent() {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [companySettings, setCompanySettings] = useState({ companyName: 'Gestor de Cobros' });
+  const [companySettings, setCompanySettings] = useState({ companyName: 'App Gestor' });
   const [showInitialSetup, setShowInitialSetup] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
 
@@ -100,7 +100,7 @@ function AppContent() {
         
         if (isConfigured) {
           console.log('✅ Sistema ya configurado, saltando setup inicial');
-          setCompanySettings({ companyName: 'Gestor de Cobros' });
+          setCompanySettings({ companyName: 'App Gestor' });
           setIsConfigured(true);
           setShowInitialSetup(false);
         } else {
@@ -119,7 +119,7 @@ function AppContent() {
         
         // En caso de cualquier error, asumir que está configurado
         console.log('⚠️ Error en verificación, asumiendo que el sistema está configurado');
-        setCompanySettings({ companyName: 'Gestor de Cobros' });
+        setCompanySettings({ companyName: 'App Gestor' });
         setIsConfigured(true);
         setShowInitialSetup(false);
       }

@@ -46,7 +46,7 @@ function TestModeLogin({ companySettings, onLogin }) {
           {companySettings.logoUrl ? (
             <img src={companySettings.logoUrl} alt="Logo de la Empresa" className="max-h-16" />
           ) : (
-            <h1 className="text-3xl font-bold">{companySettings.companyName || 'Gestor de Cobros'}</h1>
+            <h1 className="text-3xl font-bold">{companySettings.companyName || 'App Gestor'}</h1>
           )}
         </div>
         

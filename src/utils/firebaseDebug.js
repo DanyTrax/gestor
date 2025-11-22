@@ -127,12 +127,12 @@ export const ensureBasicSetup = async () => {
     if (!settingsDoc.exists()) {
       console.log('📝 Creando configuración básica de empresa...');
       await setDoc(settingsRef, {
-        companyName: 'Gestor de Cobros',
+        companyName: 'App Gestor',
         identification: '123.456.789-0',
         address: 'Dirección de Prueba',
         phone: '+57 300 123 4567',
-        email: 'contacto@gestor-cobros.com',
-        website: 'www.gestor-cobros.com',
+        email: 'contacto@app-gestor.com',
+        website: 'www.app-gestor.com',
         isDemoMode: false,
         createdAt: Timestamp.now()
       });
@@ -145,7 +145,7 @@ export const ensureBasicSetup = async () => {
     
     if (usersSnapshot.empty) {
       console.log('👥 Creando superadmin inicial...');
-      await createTestUser('admin@gestor-cobros.com', 'admin123', 'superadmin');
+      await createTestUser('admin@app-gestor.com', 'admin123', 'superadmin');
     }
     
     console.log('✅ Configuración básica completada');
