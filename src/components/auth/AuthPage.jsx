@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useNotification } from '../../contexts/NotificationContext';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification } from 'firebase/auth';
 import { collection, getDocs, setDoc, doc, query, where, Timestamp } from 'firebase/firestore';
 import { auth, db, appId } from '../../config/firebase';
+import { createPasswordResetToken } from '../../utils/passwordResetToken';
+import { getTemplateByName } from '../../utils/initializePasswordTemplates';
+import { replaceTemplateVariables } from '../../utils/templateVariables';
+import { sendEmail, loadEmailConfig } from '../../services/emailService';
 
 function AuthPage({ companySettings }) {
   const { addNotification } = useNotification();
@@ -59,25 +63,115 @@ function AuthPage({ companySettings }) {
 
     setResetLoading(true);
     try {
-      await sendPasswordResetEmail(auth, resetEmail, {
-        url: `${window.location.origin}${window.location.pathname}`,
-        handleCodeInApp: true
+      // Buscar el usuario por email en Firestore
+      const usersQuery = query(
+        collection(db, 'artifacts', appId, 'public', 'data', 'users'),
+        where('email', '==', resetEmail)
+      );
+      const userDocs = await getDocs(usersQuery);
+
+      if (userDocs.empty) {
+        addNotification('No se encontró una cuenta con ese email.', "error");
+        setResetLoading(false);
+        return;
+      }
+
+      const userDoc = userDocs.docs[0];
+      const userData = userDoc.data();
+      const userId = userDoc.id;
+
+      // Verificar que el usuario esté activo
+      if (userData.status === 'pending' || userData.status === 'disabled') {
+        addNotification('Tu cuenta está pendiente de activación o ha sido deshabilitada. Contacta al administrador.', "error");
+        setResetLoading(false);
+        return;
+      }
+
+      // Generar token personalizado para restablecimiento de contraseña
+      const token = await createPasswordResetToken(userId, resetEmail, 24); // 24 horas de validez
+      const loginUrl = `${window.location.origin}${window.location.pathname}`;
+      const resetLink = `${loginUrl}?token=${token}`;
+
+      // Cargar configuración de email
+      await loadEmailConfig();
+
+      // Obtener plantilla de restablecimiento de contraseña
+      const template = await getTemplateByName('Restablecer Contraseña');
+      
+      let emailSubject, emailBody;
+      
+      if (template) {
+        // Usar plantilla
+        const replacementData = {
+          clientName: userData.fullName || resetEmail || 'Usuario',
+          clientEmail: resetEmail,
+          resetPasswordUrl: resetLink,
+          ...userData
+        };
+        
+        emailSubject = replaceTemplateVariables(template.subject, replacementData, { companySettings });
+        emailBody = replaceTemplateVariables(template.body, replacementData, { companySettings });
+      } else {
+        // Fallback si no existe la plantilla
+        emailSubject = `Restablecer tu contraseña - ${companySettings?.companyName || 'Sistema de Gestión'}`;
+        emailBody = `Hola ${userData.fullName || resetEmail},
+
+Has solicitado restablecer tu contraseña en ${companySettings?.companyName || 'nuestro sistema'}.
+
+📝 INSTRUCCIONES:
+
+1. Haz clic en el siguiente enlace para restablecer tu contraseña:
+   ${resetLink}
+
+2. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)
+
+3. Confirma tu contraseña ingresándola nuevamente
+
+4. Haz clic en "Restablecer Contraseña"
+
+5. Una vez restablecida tu contraseña, serás redirigido automáticamente al inicio de sesión
+
+⚠️ IMPORTANTE:
+- El enlace expirará en 24 horas
+- Si no solicitaste este restablecimiento, ignora este email
+- Si tienes problemas, contacta con soporte
+
+🔗 ENLACE DIRECTO AL SISTEMA:
+${loginUrl}
+
+Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.
+
+Equipo de Soporte
+${companySettings?.companyName || 'Sistema de Gestión'}`;
+      }
+
+      // Enviar email usando el servicio de mensajería actual
+      await sendEmail({
+        to: resetEmail,
+        toName: userData.fullName || resetEmail,
+        subject: emailSubject,
+        html: emailBody.replace(/\n/g, '<br>'),
+        text: emailBody,
+        type: 'Restablecimiento de Contraseña',
+        recipientType: 'Cliente',
+        module: 'auth',
+        event: 'passwordReset',
+        metadata: {
+          userId: userId,
+          userEmail: resetEmail
+        }
       });
+
       addNotification(`Se ha enviado un enlace de restablecimiento a ${resetEmail}. Revisa tu correo.`, "success");
       setShowResetModal(false);
       setResetEmail('');
     } catch (error) {
       console.error('Error enviando email de reset:', error);
       let errorMessage = 'Error al enviar el email de restablecimiento.';
-      if (error.code === 'auth/user-not-found') {
+      if (error.message.includes('no encontrado')) {
         errorMessage = 'No se encontró una cuenta con ese email.';
-      } else if (error.code === 'auth/invalid-email') {
+      } else if (error.message.includes('inválido')) {
         errorMessage = 'El email proporcionado no es válido.';
-      } else if (error.code === 'auth/unauthorized-continue-uri') {
-        errorMessage = 'El dominio no está autorizado en Firebase. Contacta al administrador para configurar el dominio en Firebase Console.';
-        console.error('⚠️ IMPORTANTE: El dominio debe estar autorizado en Firebase Console:');
-        console.error('1. Ve a Firebase Console → Authentication → Settings → Authorized domains');
-        console.error(`2. Agrega el dominio: ${window.location.hostname}`);
       }
       addNotification(errorMessage, "error");
     } finally {
