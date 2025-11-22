@@ -1,9 +1,25 @@
+# Configurar tipos MIME correctos para archivos estáticos (PRIMERO)
+<IfModule mod_mime.c>
+  AddType application/javascript .js
+  AddType application/javascript js
+  AddType text/css .css
+  AddType text/css css
+  AddType image/svg+xml .svg
+  AddType image/svg+xml svg
+  AddType application/json .json
+  AddType application/json json
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   
-  # Excluir archivos estáticos y endpoints PHP de la reescritura
-  RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ [OR]
-  RewriteCond %{REQUEST_URI} ^/assets/ [OR]
+  # CRÍTICO: Excluir /assets/ ANTES de cualquier otra regla
+  # Esto previene que los archivos estáticos sean reescritos a index.html
+  RewriteCond %{REQUEST_URI} ^/assets/
+  RewriteRule ^ - [L]
+  
+  # Excluir archivos estáticos por extensión
+  RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json|map)$ [OR]
   RewriteCond %{REQUEST_URI} send-email\.php [OR]
   RewriteCond %{REQUEST_URI} send-zoho\.php [OR]
   RewriteCond %{REQUEST_URI} upload\.php
@@ -16,9 +32,12 @@
   RewriteRule ^ index.html [L]
 </IfModule>
 
-# Configurar tipos MIME correctos para archivos estáticos
-<IfModule mod_mime.c>
-  AddType application/javascript js
-  AddType text/css css
-  AddType image/svg+xml svg
+# Headers adicionales para archivos estáticos
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css)$">
+    Header set Content-Type "application/javascript; charset=utf-8"
+  </FilesMatch>
+  <FilesMatch "\.css$">
+    Header set Content-Type "text/css; charset=utf-8"
+  </FilesMatch>
 </IfModule>
