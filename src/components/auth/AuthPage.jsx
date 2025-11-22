@@ -3,7 +3,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification } from 'firebase/auth';
 import { collection, getDocs, setDoc, doc, query, where, Timestamp } from 'firebase/firestore';
 import { auth, db, appId } from '../../config/firebase';
-import { createPasswordResetToken } from '../../utils/passwordResetToken';
+import { createPasswordResetTokenAPI } from '../../utils/createPasswordResetTokenAPI';
 import { getTemplateByName } from '../../utils/initializePasswordTemplates';
 import { replaceTemplateVariables } from '../../utils/templateVariables';
 import { sendEmail, loadEmailConfig } from '../../services/emailService';
@@ -63,32 +63,11 @@ function AuthPage({ companySettings }) {
 
     setResetLoading(true);
     try {
-      // Buscar el usuario por email en Firestore
-      const usersQuery = query(
-        collection(db, 'artifacts', appId, 'public', 'data', 'users'),
-        where('email', '==', resetEmail)
-      );
-      const userDocs = await getDocs(usersQuery);
-
-      if (userDocs.empty) {
-        addNotification('No se encontró una cuenta con ese email.', "error");
-        setResetLoading(false);
-        return;
-      }
-
-      const userDoc = userDocs.docs[0];
-      const userData = userDoc.data();
-      const userId = userDoc.id;
-
-      // Verificar que el usuario esté activo
-      if (userData.status === 'pending' || userData.status === 'disabled') {
-        addNotification('Tu cuenta está pendiente de activación o ha sido deshabilitada. Contacta al administrador.', "error");
-        setResetLoading(false);
-        return;
-      }
-
-      // Generar token personalizado para restablecimiento de contraseña
-      const token = await createPasswordResetToken(userId, resetEmail, 24); // 24 horas de validez
+      // Generar token personalizado para restablecimiento de contraseña usando el endpoint PHP
+      // Esto evita problemas de permisos de Firestore para usuarios no autenticados
+      // El endpoint PHP valida el usuario y devuelve el token junto con los datos del usuario
+      const result = await createPasswordResetTokenAPI(resetEmail, appId, 24); // 24 horas de validez
+      const { token, userId, userData } = result;
       const loginUrl = `${window.location.origin}${window.location.pathname}`;
       const resetLink = `${loginUrl}?token=${token}`;
 

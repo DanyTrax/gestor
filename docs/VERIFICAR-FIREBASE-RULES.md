@@ -33,8 +33,11 @@ Abre el archivo `firebase-rules.txt` en tu proyecto y copia todo su contenido.
 Las reglas deben permitir lectura y escritura para usuarios autenticados en:
 
 - `/artifacts/{appId}/public/data/settings/{settingId}` - Para configuración de empresa y email
+  - **Lectura pública** de `email_config` (para usuarios no autenticados que necesitan restablecer contraseña)
 - `/artifacts/{appId}/public/data/users/{userId}` - Para datos de usuarios
 - `/artifacts/{appId}/public/data/services/{serviceId}` - Para servicios
+- `/artifacts/{appId}/public/data/messageTemplates/{templateId}` - Para plantillas de email
+  - **Lectura pública** (para usuarios no autenticados que necesitan restablecer contraseña)
 - `/artifacts/{appId}/public/data/messageHistory/{messageId}` - Para historial de mensajes
 
 ### Ejemplo de Reglas Correctas
@@ -82,6 +85,18 @@ Estas reglas permiten que **cualquier usuario autenticado** pueda leer y escribi
 - Restricciones basadas en roles (admin, cliente)
 - Validación de datos antes de escribir
 - Reglas más específicas por colección
+
+### 🔓 Lectura Pública de Plantillas y Configuración de Email
+
+Las reglas permiten **lectura pública** de:
+- **Plantillas de email** (`messageTemplates`): Necesario para que usuarios no autenticados puedan recibir emails de restablecimiento de contraseña con las plantillas correctas.
+- **Configuración de email** (`email_config`): Necesario para que el sistema pueda enviar emails de restablecimiento de contraseña sin requerir autenticación.
+
+**¿Por qué es seguro?**
+- Las plantillas solo contienen texto y variables, no datos sensibles
+- La configuración de email no expone contraseñas (están encriptadas o almacenadas de forma segura)
+- La escritura sigue requiriendo autenticación
+- Esto permite que el flujo de "Olvidé mi contraseña" funcione correctamente
 
 Para mayor seguridad, consulta la [documentación oficial de Firestore Security Rules](https://firebase.google.com/docs/firestore/security/get-started).
 
