@@ -102,46 +102,70 @@ function AdminUsersDashboard({ userRole, companySettings }) {
         try {
           console.log('📧 [USUARIOS] Enviando email de bienvenida y reset de contraseña al nuevo usuario');
           
-          // Enviar email de reset de contraseña de Firebase (esto genera un enlace seguro)
-          // Esto funciona incluso si el usuario no está autenticado
+          // Generar enlace de reset de contraseña usando nuestro endpoint (sin exponer Firebase)
+          let resetLink = null;
           try {
-            await sendPasswordResetEmail(auth, userData.email, {
-              url: `${window.location.origin}${window.location.pathname}`,
-              handleCodeInApp: true
-            });
+            const { generatePasswordResetLink } = await import('../../../utils/generateResetLink');
+            resetLink = await generatePasswordResetLink(userData.email);
+            console.log('✅ Enlace de reset generado exitosamente');
           } catch (resetError) {
-            console.error('Error enviando email de reset de Firebase:', resetError);
-            if (resetError.code === 'auth/unauthorized-continue-uri') {
-              addNotification(`⚠️ El dominio ${window.location.hostname} debe estar autorizado en Firebase Console. El usuario fue creado pero el email de reset no se pudo enviar.`, "warning");
-            } else {
-              addNotification(`⚠️ No se pudo enviar el email de reset de contraseña. El usuario fue creado.`, "warning");
+            console.error('Error generando enlace de reset:', resetError);
+            // Si falla, intentar con Firebase directamente como fallback
+            try {
+              await sendPasswordResetEmail(auth, userData.email, {
+                url: `${window.location.origin}${window.location.pathname}`,
+                handleCodeInApp: true
+              });
+              addNotification('⚠️ Se envió un email de Firebase con el enlace de restablecimiento. Revisa tu correo.', "warning");
+            } catch (firebaseError) {
+              console.error('Error con Firebase fallback:', firebaseError);
+              addNotification(`⚠️ No se pudo generar el enlace de restablecimiento. El usuario fue creado.`, "warning");
             }
-            // Continuar de todas formas con el email de notificación personalizado
           }
           
           // Cargar configuración de email
           await loadEmailConfig();
           
-          // Preparar mensaje de bienvenida con instrucciones claras sobre el enlace de reset
+          // Preparar mensaje de bienvenida con el enlace de reset incluido
           const loginUrl = `${window.location.origin}${window.location.pathname}`;
           const emailSubject = `Bienvenido a ${companySettings?.companyName || 'nuestro sistema'}`;
-          const emailBody = `Hola ${userData.fullName || userData.email},
+          
+          // Si tenemos el enlace, incluirlo directamente en el email
+          const resetLinkSection = resetLink 
+            ? `🔐 CREAR TU CONTRASEÑA - ACCESO AL SISTEMA:
 
-¡Bienvenido a ${companySettings?.companyName || 'nuestro sistema'}!
+Para completar tu registro y acceder al sistema, necesitas crear tu contraseña personal.
 
-Tu cuenta ha sido creada exitosamente en nuestro sistema de gestión.
+📝 INSTRUCCIONES PASO A PASO:
 
-📧 Tu email de acceso: ${userData.email}
+1. Haz clic en el siguiente enlace para crear tu contraseña:
+   ${resetLink}
 
-🔐 CREAR TU CONTRASEÑA - ACCESO AL SISTEMA:
+2. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)
 
-Para completar tu registro y acceder al sistema, necesitas crear tu contraseña personal usando el enlace que recibirás por correo.
+3. Confirma tu contraseña ingresándola nuevamente
+
+4. Haz clic en "Restablecer Contraseña"
+
+5. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión
+
+6. Inicia sesión con:
+   - Email: ${userData.email}
+   - Contraseña: La que acabas de crear
+
+⚠️ IMPORTANTE:
+- El enlace para crear tu contraseña expirará en 1 hora
+- Si el enlace expira, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"
+- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`
+            : `🔐 CREAR TU CONTRASEÑA - ACCESO AL SISTEMA:
+
+Para completar tu registro y acceder al sistema, necesitas crear tu contraseña personal.
 
 📝 INSTRUCCIONES PASO A PASO:
 
 1. Revisa tu correo electrónico (incluyendo la carpeta de spam)
-2. Busca un email de Firebase con el asunto "Restablece tu contraseña" o "Reset your password"
-3. Haz clic en el botón o enlace "Restablecer contraseña" dentro de ese email
+2. Busca un email con el asunto "Restablece tu contraseña"
+3. Haz clic en el enlace "Restablecer contraseña" dentro de ese email
 4. Serás redirigido a nuestro sistema en: ${loginUrl}
 5. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)
 6. Confirma tu contraseña ingresándola nuevamente
@@ -151,14 +175,23 @@ Para completar tu registro y acceder al sistema, necesitas crear tu contraseña 
    - Email: ${userData.email}
    - Contraseña: La que acabas de crear
 
-🔗 ENLACE DIRECTO AL SISTEMA:
-${loginUrl}
-
 ⚠️ IMPORTANTE:
 - El enlace para crear tu contraseña expirará en 1 hora
-- Si el enlace expira o no recibes el email, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"
-- Tu cuenta está activa y lista para usar una vez que crees tu contraseña
-- Si tienes problemas, contacta con soporte
+- Si el enlace expira, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"
+- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`;
+          
+          const emailBody = `Hola ${userData.fullName || userData.email},
+
+¡Bienvenido a ${companySettings?.companyName || 'nuestro sistema'}!
+
+Tu cuenta ha sido creada exitosamente en nuestro sistema de gestión.
+
+📧 Tu email de acceso: ${userData.email}
+
+${resetLinkSection}
+
+🔗 ENLACE DIRECTO AL SISTEMA:
+${loginUrl}
 
 Una vez que inicies sesión, podrás:
 • Ver tus servicios contratados

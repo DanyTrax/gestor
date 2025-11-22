@@ -34,3 +34,4 @@ shared/invoices/*
 
 # Firebase
 firebase-credentials.json
+firebase-credentials*.json

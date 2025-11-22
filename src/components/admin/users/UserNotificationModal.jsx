@@ -116,7 +116,7 @@ ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
           '{companyName}': companySettings?.companyName || 'Sistema de Gestión de Cobros',
           '{loginUrl}': loginUrl,
           '{clientPortalUrl}': loginUrl,
-          '{resetPasswordUrl}': loginUrl + ' (Recibirás el enlace completo por email de Firebase)'
+          '{resetPasswordUrl}': loginUrl + ' (El enlace se generará automáticamente)'
         };
         
         Object.entries(replacements).forEach(([key, value]) => {
@@ -160,24 +160,25 @@ ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
     try {
       console.log('📧 [USUARIOS] Enviando notificación de activación y reset de contraseña al usuario');
       
-      // Enviar email de reset de contraseña de Firebase (esto genera un enlace seguro)
+      // Generar enlace de reset de contraseña usando nuestro endpoint (sin exponer Firebase)
+      let resetLink = null;
       try {
-        await sendPasswordResetEmail(auth, user.email, {
-          url: `${window.location.origin}${window.location.pathname}`,
-          handleCodeInApp: true
-        });
-        console.log('✅ Email de reset de contraseña enviado por Firebase');
+        const { generatePasswordResetLink } = await import('../../../utils/generateResetLink');
+        resetLink = await generatePasswordResetLink(user.email);
+        console.log('✅ Enlace de reset generado exitosamente');
       } catch (resetError) {
-        console.error('Error enviando email de reset de Firebase:', resetError);
-        if (resetError.code === 'auth/unauthorized-continue-uri') {
-          addNotification(`⚠️ El dominio ${window.location.hostname} debe estar autorizado en Firebase Console. Ver la consola para más detalles.`, "warning");
-          console.error('⚠️ IMPORTANTE: El dominio debe estar autorizado en Firebase Console:');
-          console.error('1. Ve a Firebase Console → Authentication → Settings → Authorized domains');
-          console.error(`2. Agrega el dominio: ${window.location.hostname}`);
-        } else {
-          addNotification('⚠️ No se pudo enviar el email de reset de contraseña. El email de notificación se enviará de todas formas.', "warning");
+        console.error('Error generando enlace de reset:', resetError);
+        // Si falla, intentar con Firebase directamente como fallback
+        try {
+          await sendPasswordResetEmail(auth, user.email, {
+            url: `${window.location.origin}${window.location.pathname}`,
+            handleCodeInApp: true
+          });
+          console.log('✅ Email de reset enviado por Firebase (fallback)');
+        } catch (firebaseError) {
+          console.error('Error con Firebase fallback:', firebaseError);
+          addNotification('⚠️ No se pudo generar el enlace de restablecimiento. El email de notificación se enviará de todas formas.', "warning");
         }
-        // Continuar de todas formas con el email de notificación
       }
       
       // Cargar configuración de email
@@ -187,14 +188,27 @@ ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
       const loginUrl = `${window.location.origin}${window.location.pathname}`;
       let finalBody = body;
       
-      // Si el mensaje no incluye instrucciones de contraseña o URL, agregarlas automáticamente
-      const hasPasswordInstructions = finalBody.includes('contraseña') || finalBody.includes('password') || finalBody.includes('Password');
-      const hasUrl = finalBody.includes(loginUrl) || finalBody.includes('{loginUrl}') || finalBody.includes('{resetPasswordUrl}');
-      
-      if (!hasPasswordInstructions || !hasUrl) {
-        const passwordInstructions = `\n\n🔐 CREAR O CAMBIAR TU CONTRASEÑA:\n\nPara acceder al sistema, necesitas crear o cambiar tu contraseña usando el enlace que recibirás por correo.\n\n📝 INSTRUCCIONES PASO A PASO:\n\n1. Revisa tu correo electrónico (incluyendo la carpeta de spam)\n2. Busca un email de Firebase con el asunto "Restablece tu contraseña" o "Reset your password"\n3. Haz clic en el botón o enlace "Restablecer contraseña" dentro de ese email\n4. Serás redirigido a nuestro sistema en: ${loginUrl}\n5. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)\n6. Confirma tu contraseña ingresándola nuevamente\n7. Haz clic en "Restablecer Contraseña"\n8. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión\n9. Inicia sesión con tu email (${user.email}) y la contraseña que acabas de crear\n\n🔗 ENLACE DIRECTO AL SISTEMA:\n${loginUrl}\n\n⚠️ IMPORTANTE:\n- El enlace para crear/cambiar tu contraseña expirará en 1 hora\n- Si el enlace expira o no recibes el email, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"\n- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`;
+      // Si tenemos el enlace, incluirlo directamente en el mensaje
+      if (resetLink) {
+        // Reemplazar {resetPasswordUrl} si existe en la plantilla
+        finalBody = finalBody.replace(/\{resetPasswordUrl\}/g, resetLink);
         
-        finalBody += passwordInstructions;
+        // Si el mensaje no incluye el enlace, agregarlo
+        if (!finalBody.includes(resetLink) && !finalBody.includes('{resetPasswordUrl}')) {
+          const passwordInstructions = `\n\n🔐 CREAR O CAMBIAR TU CONTRASEÑA:\n\nPara acceder al sistema, necesitas crear o cambiar tu contraseña.\n\n📝 INSTRUCCIONES PASO A PASO:\n\n1. Haz clic en el siguiente enlace para crear/cambiar tu contraseña:\n   ${resetLink}\n\n2. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)\n\n3. Confirma tu contraseña ingresándola nuevamente\n\n4. Haz clic en "Restablecer Contraseña"\n\n5. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión\n\n6. Inicia sesión con tu email (${user.email}) y la contraseña que acabas de crear\n\n⚠️ IMPORTANTE:\n- El enlace para crear/cambiar tu contraseña expirará en 1 hora\n- Si el enlace expira, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"\n- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`;
+          
+          finalBody += passwordInstructions;
+        }
+      } else {
+        // Si no tenemos el enlace, agregar instrucciones genéricas
+        const hasPasswordInstructions = finalBody.includes('contraseña') || finalBody.includes('password') || finalBody.includes('Password');
+        const hasUrl = finalBody.includes(loginUrl) || finalBody.includes('{loginUrl}') || finalBody.includes('{resetPasswordUrl}');
+        
+        if (!hasPasswordInstructions || !hasUrl) {
+          const passwordInstructions = `\n\n🔐 CREAR O CAMBIAR TU CONTRASEÑA:\n\nPara acceder al sistema, necesitas crear o cambiar tu contraseña usando el enlace que recibirás por correo.\n\n📝 INSTRUCCIONES PASO A PASO:\n\n1. Revisa tu correo electrónico (incluyendo la carpeta de spam)\n2. Busca un email con el asunto "Restablece tu contraseña"\n3. Haz clic en el enlace "Restablecer contraseña" dentro de ese email\n4. Serás redirigido a nuestro sistema en: ${loginUrl}\n5. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)\n6. Confirma tu contraseña ingresándola nuevamente\n7. Haz clic en "Restablecer Contraseña"\n8. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión\n9. Inicia sesión con tu email (${user.email}) y la contraseña que acabas de crear\n\n⚠️ IMPORTANTE:\n- El enlace para crear/cambiar tu contraseña expirará en 1 hora\n- Si el enlace expira o no recibes el email, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"\n- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`;
+          
+          finalBody += passwordInstructions;
+        }
       }
       
       // Enviar email usando el servicio
