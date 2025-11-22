@@ -9,6 +9,7 @@ import ActionDropdown from '../../common/ActionDropdown';
 import UserModal from './UserModal';
 import CreateUserModal from './CreateUserModal';
 import UserActivationModal from './UserActivationModal';
+import UserNotificationModal from './UserNotificationModal';
 
 function AdminUsersDashboard({ userRole, companySettings }) {
   const { addNotification } = useNotification();
@@ -17,8 +18,10 @@ function AdminUsersDashboard({ userRole, companySettings }) {
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [isActivationModalOpen, setActivationModalOpen] = useState(false);
+  const [isNotificationModalOpen, setNotificationModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [activatingUser, setActivatingUser] = useState(null);
+  const [notifyingUser, setNotifyingUser] = useState(null);
 
   useEffect(() => {
     const usersCollection = collection(db, 'artifacts', appId, 'public', 'data', 'users');
@@ -180,59 +183,8 @@ Equipo de Soporte`;
           setActivationModalOpen(true);
           break;
         case 'notify':
-          try {
-            console.log('📧 [USUARIOS] Enviando notificación de activación al usuario');
-            
-            // Cargar configuración de email
-            await loadEmailConfig();
-            
-            // Generar link de activación
-            const activationLink = `${window.location.origin}?uid=${user.id}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.fullName || '')}&id=${encodeURIComponent(user.identification || '')}`;
-            
-            // Preparar mensaje de activación
-            const emailSubject = `Activación de Cuenta - ${companySettings?.companyName || 'Sistema de Gestión'}`;
-            const emailBody = `Hola ${user.fullName || user.email},
-
-Tu cuenta ha sido activada exitosamente en nuestro sistema de gestión.
-
-${user.status === 'pending' ? `Para completar la activación, haz clic en el siguiente enlace:
-${activationLink}
-
-` : 'Tu cuenta está activa y lista para usar.\n\n'}Ahora puedes:
-• Ver tus servicios contratados
-• Crear tickets de soporte
-• Gestionar tu perfil y pagos
-
-Para acceder, simplemente inicia sesión con tu email y contraseña.
-
-¡Bienvenido!
-
-Equipo de Soporte`;
-
-            // Enviar email usando el servicio
-            await sendEmail({
-              to: user.email,
-              toName: user.fullName || user.email,
-              subject: emailSubject,
-              html: emailBody.replace(/\n/g, '<br>'),
-              text: emailBody,
-              type: 'Activación',
-              recipientType: 'Cliente',
-              module: 'users',
-              event: 'userActivation',
-              metadata: {
-                userId: user.id,
-                userEmail: user.email,
-                userRole: user.role,
-                activationLink: activationLink
-              }
-            });
-            
-            addNotification(`Notificación de activación enviada a ${user.email}`, "success");
-          } catch (emailError) {
-            console.error('Error enviando notificación de activación:', emailError);
-            addNotification(`Error al enviar notificación: ${emailError.message}`, "error");
-          }
+          setNotifyingUser(user);
+          setNotificationModalOpen(true);
           break;
         case 'disable':
           if (window.confirm(`¿Deshabilitar a ${user.email}?`)) {
@@ -421,6 +373,15 @@ Equipo de Soporte`;
         }} 
         onActivate={handleActivateUser}
         user={activatingUser}
+        companySettings={companySettings}
+      />
+      <UserNotificationModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => {
+          setNotificationModalOpen(false);
+          setNotifyingUser(null);
+        }}
+        user={notifyingUser}
         companySettings={companySettings}
       />
     </div>
