@@ -5,6 +5,8 @@ import { db, appId } from '../../../config/firebase';
 import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../../config/firebase';
+import { getTemplateByName } from '../../../utils/initializePasswordTemplates';
+import { replaceTemplateVariables } from '../../../utils/templateVariables';
 
 function UserNotificationModal({ isOpen, onClose, user, companySettings }) {
   const { addNotification } = useNotification();
@@ -81,15 +83,22 @@ ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
       const clientTemplates = allTemplates.filter(t => (t.category || 'client') === 'client');
       setTemplates(clientTemplates);
       
-      // Si hay plantillas, buscar la de "Notificación de Activación" primero, sino la primera
+      // Si hay plantillas, buscar la de "Notificación de Activación" primero
       if (clientTemplates.length > 0 && !selectedTemplateId) {
         const activationTemplate = clientTemplates.find(t => 
-          t.name.includes('Activación') || t.name.includes('activación')
+          t.name.includes('Notificación de Activación') || t.name.includes('Activación - Crear')
         );
         if (activationTemplate) {
           setSelectedTemplateId(activationTemplate.id);
         } else {
-          setSelectedTemplateId(clientTemplates[0].id);
+          // Si no existe, intentar cargarla desde la función
+          getTemplateByName('Notificación de Activación - Crear Contraseña').then(template => {
+            if (template && clientTemplates.find(t => t.id === template.id)) {
+              setSelectedTemplateId(template.id);
+            } else if (clientTemplates.length > 0) {
+              setSelectedTemplateId(clientTemplates[0].id);
+            }
+          });
         }
       }
     }, (error) => {
@@ -109,24 +118,20 @@ ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
         let templateBody = template.body;
         let templateSubject = template.subject;
         
+        // Usar replaceTemplateVariables para reemplazar todas las variables
         const loginUrl = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
-        const replacements = {
-          '{clientName}': user?.fullName || user?.email || '',
-          '{clientEmail}': user?.email || '',
-          '{companyName}': companySettings?.companyName || 'Sistema de Gestión de Cobros',
-          '{loginUrl}': loginUrl,
-          '{clientPortalUrl}': loginUrl,
-          '{resetPasswordUrl}': loginUrl + ' (El enlace se generará automáticamente)'
+        const replacementData = {
+          clientName: user?.fullName || user?.email || '',
+          clientEmail: user?.email || '',
+          resetPasswordUrl: loginUrl + ' (El enlace se generará automáticamente)',
+          ...user
         };
         
-        Object.entries(replacements).forEach(([key, value]) => {
-          const regex = new RegExp(key.replace(/[-\\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
-          templateBody = templateBody.replace(regex, value);
-          templateSubject = templateSubject.replace(regex, value);
-        });
+        const processedSubject = replaceTemplateVariables(templateSubject, replacementData, { companySettings });
+        const processedBody = replaceTemplateVariables(templateBody, replacementData, { companySettings });
         
-        setBody(templateBody);
-        setSubject(templateSubject);
+        setBody(processedBody);
+        setSubject(processedSubject);
       }
     } else if (!selectedTemplateId) {
       // Si no hay plantilla seleccionada, usar mensaje por defecto
@@ -184,31 +189,19 @@ ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
       // Cargar configuración de email
       await loadEmailConfig();
       
-      // Preparar mensaje con instrucciones de creación de contraseña
+      // Preparar mensaje final reemplazando {resetPasswordUrl} con el enlace real si está disponible
       const loginUrl = `${window.location.origin}${window.location.pathname}`;
       let finalBody = body;
+      let finalSubject = subject;
       
-      // Si tenemos el enlace, incluirlo directamente en el mensaje
+      // Si tenemos el enlace, reemplazar {resetPasswordUrl} en el mensaje
       if (resetLink) {
-        // Reemplazar {resetPasswordUrl} si existe en la plantilla
         finalBody = finalBody.replace(/\{resetPasswordUrl\}/g, resetLink);
-        
-        // Si el mensaje no incluye el enlace, agregarlo
-        if (!finalBody.includes(resetLink) && !finalBody.includes('{resetPasswordUrl}')) {
-          const passwordInstructions = `\n\n🔐 CREAR O CAMBIAR TU CONTRASEÑA:\n\nPara acceder al sistema, necesitas crear o cambiar tu contraseña.\n\n📝 INSTRUCCIONES PASO A PASO:\n\n1. Haz clic en el siguiente enlace para crear/cambiar tu contraseña:\n   ${resetLink}\n\n2. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)\n\n3. Confirma tu contraseña ingresándola nuevamente\n\n4. Haz clic en "Restablecer Contraseña"\n\n5. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión\n\n6. Inicia sesión con tu email (${user.email}) y la contraseña que acabas de crear\n\n⚠️ IMPORTANTE:\n- El enlace para crear/cambiar tu contraseña expirará en 1 hora\n- Si el enlace expira, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"\n- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`;
-          
-          finalBody += passwordInstructions;
-        }
+        finalSubject = finalSubject.replace(/\{resetPasswordUrl\}/g, resetLink);
       } else {
-        // Si no tenemos el enlace, agregar instrucciones genéricas
-        const hasPasswordInstructions = finalBody.includes('contraseña') || finalBody.includes('password') || finalBody.includes('Password');
-        const hasUrl = finalBody.includes(loginUrl) || finalBody.includes('{loginUrl}') || finalBody.includes('{resetPasswordUrl}');
-        
-        if (!hasPasswordInstructions || !hasUrl) {
-          const passwordInstructions = `\n\n🔐 CREAR O CAMBIAR TU CONTRASEÑA:\n\nPara acceder al sistema, necesitas crear o cambiar tu contraseña usando el enlace que recibirás por correo.\n\n📝 INSTRUCCIONES PASO A PASO:\n\n1. Revisa tu correo electrónico (incluyendo la carpeta de spam)\n2. Busca un email con el asunto "Restablece tu contraseña"\n3. Haz clic en el enlace "Restablecer contraseña" dentro de ese email\n4. Serás redirigido a nuestro sistema en: ${loginUrl}\n5. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)\n6. Confirma tu contraseña ingresándola nuevamente\n7. Haz clic en "Restablecer Contraseña"\n8. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión\n9. Inicia sesión con tu email (${user.email}) y la contraseña que acabas de crear\n\n⚠️ IMPORTANTE:\n- El enlace para crear/cambiar tu contraseña expirará en 1 hora\n- Si el enlace expira o no recibes el email, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"\n- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`;
-          
-          finalBody += passwordInstructions;
-        }
+        // Si no hay enlace, dejar el placeholder o usar loginUrl
+        finalBody = finalBody.replace(/\{resetPasswordUrl\}/g, loginUrl + ' (Revisa tu correo para el enlace completo)');
+        finalSubject = finalSubject.replace(/\{resetPasswordUrl\}/g, loginUrl);
       }
       
       // Enviar email usando el servicio

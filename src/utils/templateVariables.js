@@ -22,6 +22,7 @@ export const replaceTemplateVariables = (text, data = {}, options = {}) => {
     '{loginUrl}': loginUrl,
     '{clientPortalUrl}': clientPortalUrl,
     '{clientLoginUrl}': loginUrl,
+    '{resetPasswordUrl}': data.resetPasswordUrl || loginUrl + ' (El enlace se generará automáticamente)',
     
     // Información de la empresa
     '{companyName}': companyName,

@@ -7,6 +7,7 @@ import { checkUsersInAuth } from './utils/authCheck';
 import { useNotification, NotificationProvider } from './contexts/NotificationContext';
 import { useInactivityTimeout } from './hooks/useInactivityTimeout';
 import { setupConsoleErrorFilter } from './utils/filterConsoleErrors';
+import { initializePasswordTemplates } from './utils/initializePasswordTemplates';
 import { LogoutIcon } from './components/icons';
 import AdminDashboard from './components/dashboard/AdminDashboard';
 import ClientDashboard from './components/dashboard/ClientDashboard';
@@ -128,6 +129,11 @@ function AppContent() {
 
   useEffect(() => {
     if (!isConfigured) return;
+
+    // Inicializar plantillas de contraseña automáticamente
+    initializePasswordTemplates().catch(error => {
+      console.error('Error inicializando plantillas de contraseña:', error);
+    });
 
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {

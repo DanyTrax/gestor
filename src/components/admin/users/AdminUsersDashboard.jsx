@@ -4,6 +4,8 @@ import { collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy, addD
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 import { auth, db, appId } from '../../../config/firebase';
+import { getTemplateByName } from '../../../utils/initializePasswordTemplates';
+import { replaceTemplateVariables } from '../../../utils/templateVariables';
 import { PlusIcon, SearchIcon } from '../../icons';
 import ActionDropdown from '../../common/ActionDropdown';
 import UserModal from './UserModal';
@@ -126,85 +128,42 @@ function AdminUsersDashboard({ userRole, companySettings }) {
           // Cargar configuración de email
           await loadEmailConfig();
           
-          // Preparar mensaje de bienvenida con el enlace de reset incluido
+          // Obtener plantilla de nuevo usuario
+          const template = await getTemplateByName('Bienvenida - Nuevo Usuario - Crear Contraseña');
+          
           const loginUrl = `${window.location.origin}${window.location.pathname}`;
-          const emailSubject = `Bienvenido a ${companySettings?.companyName || 'nuestro sistema'}`;
+          let emailSubject, emailBody;
           
-          // Si tenemos el enlace, incluirlo directamente en el email
-          const resetLinkSection = resetLink 
-            ? `🔐 CREAR TU CONTRASEÑA - ACCESO AL SISTEMA:
-
-Para completar tu registro y acceder al sistema, necesitas crear tu contraseña personal.
-
-📝 INSTRUCCIONES PASO A PASO:
-
-1. Haz clic en el siguiente enlace para crear tu contraseña:
-   ${resetLink}
-
-2. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)
-
-3. Confirma tu contraseña ingresándola nuevamente
-
-4. Haz clic en "Restablecer Contraseña"
-
-5. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión
-
-6. Inicia sesión con:
-   - Email: ${userData.email}
-   - Contraseña: La que acabas de crear
-
-⚠️ IMPORTANTE:
-- El enlace para crear tu contraseña expirará en 1 hora
-- Si el enlace expira, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"
-- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`
-            : `🔐 CREAR TU CONTRASEÑA - ACCESO AL SISTEMA:
-
-Para completar tu registro y acceder al sistema, necesitas crear tu contraseña personal.
-
-📝 INSTRUCCIONES PASO A PASO:
-
-1. Revisa tu correo electrónico (incluyendo la carpeta de spam)
-2. Busca un email con el asunto "Restablece tu contraseña"
-3. Haz clic en el enlace "Restablecer contraseña" dentro de ese email
-4. Serás redirigido a nuestro sistema en: ${loginUrl}
-5. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)
-6. Confirma tu contraseña ingresándola nuevamente
-7. Haz clic en "Restablecer Contraseña"
-8. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión
-9. Inicia sesión con:
-   - Email: ${userData.email}
-   - Contraseña: La que acabas de crear
-
-⚠️ IMPORTANTE:
-- El enlace para crear tu contraseña expirará en 1 hora
-- Si el enlace expira, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"
-- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`;
-          
-          const emailBody = `Hola ${userData.fullName || userData.email},
+          if (template) {
+            // Usar plantilla
+            const replacementData = {
+              clientName: userData.fullName || userData.email || 'Cliente',
+              clientEmail: userData.email || '',
+              resetPasswordUrl: resetLink || loginUrl + ' (El enlace se generará automáticamente)',
+              ...userData
+            };
+            
+            emailSubject = replaceTemplateVariables(template.subject, replacementData, { companySettings });
+            emailBody = replaceTemplateVariables(template.body, replacementData, { companySettings });
+          } else {
+            // Fallback si no existe la plantilla
+            emailSubject = `Bienvenido a ${companySettings?.companyName || 'nuestro sistema'}`;
+            emailBody = `Hola ${userData.fullName || userData.email},
 
 ¡Bienvenido a ${companySettings?.companyName || 'nuestro sistema'}!
 
-Tu cuenta ha sido creada exitosamente en nuestro sistema de gestión.
+Tu cuenta ha sido creada exitosamente.
 
 📧 Tu email de acceso: ${userData.email}
 
-${resetLinkSection}
+${resetLink ? `🔐 CREAR TU CONTRASEÑA:
 
-🔗 ENLACE DIRECTO AL SISTEMA:
-${loginUrl}
-
-Una vez que inicies sesión, podrás:
-• Ver tus servicios contratados
-• Crear tickets de soporte
-• Gestionar tu perfil y pagos
-• Acceder a todas las funcionalidades del sistema
-
-Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.
-
-¡Bienvenido!
+Haz clic en el siguiente enlace para crear tu contraseña:
+${resetLink}` : 'Revisa tu correo para recibir el enlace de creación de contraseña.'}
 
 Equipo de Soporte
 ${companySettings?.companyName || 'Sistema de Gestión'}`;
+          }
 
           // Enviar email de bienvenida usando el servicio
           await sendEmail({
