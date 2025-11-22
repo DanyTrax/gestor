@@ -286,7 +286,8 @@ function AdminTemplatesDashboard() {
     '{paymentDate}', '{paymentMethod}', '{paymentReference}', '{nextDueDate}',
     '{paymentTime}', '{collectionEfficiency}', '{clientSatisfaction}', '{monthlyRevenue}',
     '{registrationDate}', '{growthPotential}', '{clientSegment}', '{acquisitionSource}',
-    '{gracePeriod}', '{communicationHistory}', '{serviceTerms}', '{suspensionPolicy}'
+    '{gracePeriod}', '{communicationHistory}', '{serviceTerms}', '{suspensionPolicy}',
+    '{loginUrl}', '{clientPortalUrl}'
   ];
 
   return (
@@ -557,7 +558,10 @@ function AdminTemplatesDashboard() {
               <p>{adminVariables.slice(31, 35).join(', ')}</p>
               
               <p className="font-medium mt-2">Configuración:</p>
-              <p>{adminVariables.slice(35).join(', ')}</p>
+              <p>{adminVariables.slice(35, 37).join(', ')}</p>
+              
+              <p className="font-medium mt-2">URLs del sistema:</p>
+              <p>{adminVariables.slice(37).join(', ')}</p>
             </div>
           </div>
         </div>
