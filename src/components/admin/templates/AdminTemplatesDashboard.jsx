@@ -11,7 +11,9 @@ function AdminTemplatesDashboard() {
   const [name, setName] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [category, setCategory] = useState('client'); // 'client' o 'admin'
   const [isEditing, setIsEditing] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all', 'client', 'admin'
   const [admins, setAdmins] = useState([]);
   const [alertSettings, setAlertSettings] = useState({
     preVencimiento: {
@@ -116,8 +118,17 @@ function AdminTemplatesDashboard() {
     setName(suggestion.name);
     setSubject(suggestion.subject);
     setBody(suggestion.body);
+    // Determinar categoría basada en la sugerencia
+    const isAdminTemplate = suggestion.name.toLowerCase().includes('admin') || 
+                           suggestion.name.toLowerCase().includes('alerta');
+    setCategory(isAdminTemplate ? 'admin' : 'client');
     addNotification("Sugerencia cargada en el editor.", "success");
   };
+
+  // Filtrar plantillas por categoría
+  const filteredTemplates = categoryFilter === 'all' 
+    ? templates 
+    : templates.filter(t => (t.category || 'client') === categoryFilter);
 
   // Cargar administradores
   useEffect(() => {
@@ -155,11 +166,13 @@ function AdminTemplatesDashboard() {
       setName(currentTemplate.name);
       setSubject(currentTemplate.subject);
       setBody(currentTemplate.body);
+      setCategory(currentTemplate.category || 'client');
       setIsEditing(true);
     } else {
       setName('');
       setSubject('');
       setBody('');
+      setCategory('client');
       setIsEditing(false);
     }
   }, [currentTemplate]);
@@ -174,6 +187,7 @@ function AdminTemplatesDashboard() {
       name: name.trim(), 
       subject: subject.trim(), 
       body: body.trim(),
+      category: category || 'client',
       updatedAt: new Date()
     };
     
@@ -213,6 +227,7 @@ function AdminTemplatesDashboard() {
     setName('');
     setSubject('');
     setBody('');
+    setCategory('client');
   };
 
   const handleEditTemplate = (template) => {
@@ -321,19 +336,40 @@ function AdminTemplatesDashboard() {
             <div className="p-4 border-b">
               <h3 className="text-lg font-semibold text-gray-900">Plantillas Guardadas</h3>
               <p className="text-sm text-gray-500">Haz clic para editar una plantilla</p>
+              {/* Filtro de categoría */}
+              <div className="mt-3">
+                <select 
+                  value={categoryFilter} 
+                  onChange={e => setCategoryFilter(e.target.value)}
+                  className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">Todas las plantillas</option>
+                  <option value="client">Plantillas para Clientes</option>
+                  <option value="admin">Plantillas para Administradores</option>
+                </select>
+              </div>
             </div>
             <div className="max-h-80 overflow-y-auto">
-              {templates.length === 0 ? (
+              {filteredTemplates.length === 0 ? (
                 <div className="p-4 text-center text-gray-500">
                   <p>No hay plantillas guardadas</p>
                   <p className="text-sm">Crea tu primera plantilla</p>
                 </div>
               ) : (
-                templates.map(template => (
+                filteredTemplates.map(template => (
                   <div key={template.id} className="p-4 border-b hover:bg-gray-50 transition-colors">
                     <div className="flex justify-between items-start">
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-gray-900 truncate">{template.name}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium text-gray-900 truncate">{template.name}</h4>
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            (template.category || 'client') === 'client' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {(template.category || 'client') === 'client' ? 'Cliente' : 'Admin'}
+                          </span>
+                        </div>
                         <p className="text-sm text-gray-500 truncate mt-1">{template.subject}</p>
                         <p className="text-xs text-gray-400 mt-1">
                           {template.createdAt ? new Date(template.createdAt.seconds * 1000).toLocaleDateString() : 'Sin fecha'}
@@ -551,6 +587,24 @@ function AdminTemplatesDashboard() {
                   placeholder="Ej: Primer Recordatorio de Pago" 
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                 />
+              </div>
+
+              {/* Categoría de la plantilla */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Categoría
+                </label>
+                <select 
+                  value={category} 
+                  onChange={e => setCategory(e.target.value)} 
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="client">Plantilla para Clientes</option>
+                  <option value="admin">Plantilla para Administradores</option>
+                </select>
+                <p className="text-sm text-gray-500 mt-1">
+                  Selecciona si esta plantilla es para enviar a clientes o a administradores
+                </p>
               </div>
 
               {/* Asunto del correo */}

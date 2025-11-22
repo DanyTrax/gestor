@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { sendEmail, loadEmailConfig } from '../../../services/emailService';
+import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
+import { db, appId } from '../../../config/firebase';
 
 function UserActivationModal({ isOpen, onClose, user, onActivate, companySettings }) {
   const { addNotification } = useNotification();
   const [message, setMessage] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const defaultMessage = `Hola ${user?.fullName || user?.email},
@@ -22,6 +26,55 @@ Para acceder, simplemente inicia sesión con tu email y contraseña.
 
 Equipo de Soporte`;
 
+  // Cargar plantillas para clientes
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const templatesCollection = collection(db, 'artifacts', appId, 'public', 'data', 'messageTemplates');
+    // Cargar todas las plantillas y filtrar en el cliente (por si algunas no tienen category)
+    const allTemplatesQuery = query(templatesCollection, orderBy('name'));
+    
+    const unsubscribe = onSnapshot(allTemplatesQuery, (snapshot) => {
+      const allTemplates = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      // Filtrar solo plantillas para clientes (por defecto 'client' si no tiene category)
+      const clientTemplates = allTemplates.filter(t => (t.category || 'client') === 'client');
+      setTemplates(clientTemplates);
+    }, (error) => {
+      console.error('Error loading templates:', error);
+      setTemplates([]);
+    });
+    
+    return () => unsubscribe();
+  }, [isOpen]);
+
+  // Aplicar plantilla seleccionada
+  useEffect(() => {
+    if (selectedTemplateId) {
+      const template = templates.find(t => t.id === selectedTemplateId);
+      if (template) {
+        // Reemplazar variables básicas
+        let templateBody = template.body;
+        let templateSubject = template.subject;
+        
+        const replacements = {
+          '{clientName}': user?.fullName || user?.email || '',
+          '{clientEmail}': user?.email || '',
+          '{companyName}': companySettings?.companyName || 'Sistema de Gestión de Cobros'
+        };
+        
+        Object.entries(replacements).forEach(([key, value]) => {
+          templateBody = templateBody.replace(new RegExp(key, 'g'), value);
+          templateSubject = templateSubject.replace(new RegExp(key, 'g'), value);
+        });
+        
+        setMessage(templateBody);
+      }
+    }
+  }, [selectedTemplateId, templates, user, companySettings]);
+
   const handleActivate = async () => {
     setLoading(true);
     try {
@@ -34,8 +87,26 @@ Equipo de Soporte`;
       await loadEmailConfig();
       
       // Preparar mensaje
-      const emailMessage = message || defaultMessage;
-      const emailSubject = `Cuenta Activada - ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
+      let emailMessage = message || defaultMessage;
+      let emailSubject = `Cuenta Activada - ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
+      
+      // Si hay una plantilla seleccionada, usar su asunto
+      if (selectedTemplateId) {
+        const template = templates.find(t => t.id === selectedTemplateId);
+        if (template) {
+          // Reemplazar variables en el asunto
+          let templateSubject = template.subject;
+          const replacements = {
+            '{clientName}': user?.fullName || user?.email || '',
+            '{clientEmail}': user?.email || '',
+            '{companyName}': companySettings?.companyName || 'Sistema de Gestión de Cobros'
+          };
+          Object.entries(replacements).forEach(([key, value]) => {
+            templateSubject = templateSubject.replace(new RegExp(key, 'g'), value);
+          });
+          emailSubject = templateSubject;
+        }
+      }
       
       // Enviar email usando el servicio
       await sendEmail({
@@ -83,17 +154,47 @@ Equipo de Soporte`;
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mensaje de Notificación (Opcional)
+            Seleccionar Plantilla (Opcional)
+          </label>
+          <select
+            value={selectedTemplateId}
+            onChange={(e) => {
+              setSelectedTemplateId(e.target.value);
+              if (!e.target.value) {
+                setMessage('');
+              }
+            }}
+            className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500 mb-3"
+          >
+            <option value="">-- Sin plantilla (usar mensaje por defecto) --</option>
+            {templates.map(template => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+          {selectedTemplateId && (
+            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                <strong>Plantilla seleccionada:</strong> {templates.find(t => t.id === selectedTemplateId)?.name || 'N/A'}
+              </p>
+            </div>
+          )}
+          
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Mensaje de Notificación
           </label>
           <textarea 
-            value={message} 
+            value={message || defaultMessage} 
             onChange={(e) => setMessage(e.target.value)} 
             rows="8" 
             className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500"
             placeholder={defaultMessage}
           />
           <p className="text-sm text-gray-500 mt-1">
-            Si no escribes un mensaje personalizado, se enviará el mensaje por defecto.
+            {selectedTemplateId 
+              ? 'Puedes editar el mensaje de la plantilla seleccionada o dejarlo como está.'
+              : 'Si no seleccionas una plantilla, se enviará el mensaje por defecto. Puedes personalizarlo aquí.'}
           </p>
         </div>
 
