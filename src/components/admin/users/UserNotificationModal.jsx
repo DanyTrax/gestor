@@ -47,9 +47,16 @@ Equipo de Soporte`;
       const clientTemplates = allTemplates.filter(t => (t.category || 'client') === 'client');
       setTemplates(clientTemplates);
       
-      // Si hay plantillas, seleccionar la primera por defecto
+      // Si hay plantillas, buscar la de "Notificación de Activación" primero, sino la primera
       if (clientTemplates.length > 0 && !selectedTemplateId) {
-        setSelectedTemplateId(clientTemplates[0].id);
+        const activationTemplate = clientTemplates.find(t => 
+          t.name.includes('Activación') || t.name.includes('activación')
+        );
+        if (activationTemplate) {
+          setSelectedTemplateId(activationTemplate.id);
+        } else {
+          setSelectedTemplateId(clientTemplates[0].id);
+        }
       }
     }, (error) => {
       console.error('Error loading templates:', error);
@@ -92,14 +99,18 @@ Equipo de Soporte`;
     }
   }, [selectedTemplateId, templates, user, companySettings]);
 
-  // Resetear cuando se abre el modal
+  // Resetear cuando se abre el modal, pero mantener la selección de plantilla si existe
   useEffect(() => {
     if (isOpen) {
-      setBody(defaultMessage);
-      setSubject(defaultSubject);
-      setSelectedTemplateId('');
+      // No resetear selectedTemplateId aquí, se manejará en el otro useEffect
+      // Solo resetear si no hay plantillas cargadas aún
+      if (templates.length === 0) {
+        setBody(defaultMessage);
+        setSubject(defaultSubject);
+        setSelectedTemplateId('');
+      }
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, templates.length]);
 
   if (!isOpen) return null;
 

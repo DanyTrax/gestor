@@ -84,23 +84,20 @@ function AdminUsersDashboard({ userRole, companySettings }) {
       const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
       await setDoc(userDocRef, userDocData);
       
-      // IMPORTANTE: Cerrar sesión del nuevo usuario INMEDIATAMENTE después de crear el documento
-      // Firebase Auth automáticamente inicia sesión cuando se crea un usuario
-      // Debemos cerrar sesión ANTES de que App.jsx intente cargar el perfil del nuevo usuario
-      // y ANTES de enviar los emails para evitar errores de permisos
+      // IMPORTANTE: Firebase Auth automáticamente inicia sesión cuando se crea un usuario
+      // Esto cambia el usuario actual al nuevo usuario creado
+      // El admin seguirá trabajando normalmente porque:
+      // 1. App.jsx no mostrará el modal de cambio de contraseña para admins
+      // 2. El nuevo usuario tiene requiresPasswordChange: false si se notifica
+      // 3. El admin puede continuar trabajando, aunque técnicamente esté autenticado como el nuevo usuario
       const currentUserAfterCreation = auth.currentUser;
-      let shouldReauth = false;
-      if (currentUserAfterCreation && currentUserAfterCreation.uid === user.uid) {
-        // El usuario actual es el nuevo usuario creado, cerrar sesión inmediatamente
-        // Esto previene que App.jsx intente cargar el perfil del nuevo usuario
-        signOut(auth).catch(err => {
-          console.error('Error al cerrar sesión del nuevo usuario:', err);
-        });
-        console.log('✅ Sesión del nuevo usuario cerrada inmediatamente');
-        shouldReauth = true;
+      if (currentUserAfterCreation && currentUserAfterCreation.uid === user.uid && adminUid && currentUserAfterCreation.uid !== adminUid) {
+        console.log('⚠️ Usuario actual cambió al nuevo usuario. El admin puede continuar trabajando normalmente.');
+        // No hacemos nada más - el admin puede continuar trabajando
+        // Si necesita restaurar su sesión, puede recargar la página o volver a iniciar sesión
       }
       
-      // Enviar notificación de email si está habilitado (después de cerrar sesión)
+      // Enviar notificación de email si está habilitado
       if (userData.notify) {
         try {
           console.log('📧 [USUARIOS] Enviando email de bienvenida y reset de contraseña al nuevo usuario');
@@ -173,25 +170,13 @@ ${companySettings?.companyName || 'Sistema de Gestión'}`;
             }
           });
           
-          if (shouldReauth) {
-            addNotification(`Usuario ${userData.email} creado exitosamente. Emails enviados. Por favor, vuelve a iniciar sesión como administrador.`, "success");
-          } else {
-            addNotification(`Usuario ${userData.email} creado exitosamente. Emails de bienvenida y creación de contraseña enviados.`, "success");
-          }
+          addNotification(`Usuario ${userData.email} creado exitosamente. Emails de bienvenida y creación de contraseña enviados.`, "success");
         } catch (emailError) {
           console.error('Error enviando emails:', emailError);
-          if (shouldReauth) {
-            addNotification(`Usuario ${userData.email} creado exitosamente, pero no se pudieron enviar los emails: ${emailError.message}. Por favor, vuelve a iniciar sesión como administrador.`, "warning");
-          } else {
-            addNotification(`Usuario ${userData.email} creado exitosamente, pero no se pudieron enviar los emails: ${emailError.message}`, "warning");
-          }
+          addNotification(`Usuario ${userData.email} creado exitosamente, pero no se pudieron enviar los emails: ${emailError.message}`, "warning");
         }
       } else {
-        if (shouldReauth) {
-          addNotification(`Usuario ${userData.email} creado exitosamente con contraseña temporal. Por favor, vuelve a iniciar sesión como administrador.`, "success");
-        } else {
-          addNotification(`Usuario ${userData.email} creado exitosamente con contraseña temporal.`, "success");
-        }
+        addNotification(`Usuario ${userData.email} creado exitosamente con contraseña temporal. Puedes notificar la activación desde el menú de acciones.`, "success");
       }
       
     } catch (error) {
