@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy, addDoc, setDoc, Timestamp, getDocs, where } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 import { auth, db, appId } from '../../../config/firebase';
 import { PlusIcon, SearchIcon } from '../../icons';
@@ -38,6 +38,9 @@ function AdminUsersDashboard({ userRole, companySettings }) {
   };
 
   const handleCreateUser = async (userData) => {
+    // Guardar el UID del admin actual antes de crear el usuario
+    const adminUid = auth.currentUser?.uid;
+    
     try {
       // Verificar si el email ya existe en la colección de usuarios
       const usersQuery = query(
@@ -74,7 +77,7 @@ function AdminUsersDashboard({ userRole, companySettings }) {
         status: userData.status || 'active',
         isProfileComplete: true,
         createdAt: Timestamp.now(),
-        requiresPasswordChange: true // El usuario debe cambiar su contraseña
+        requiresPasswordChange: userData.notify ? false : true // Si se notifica, no requiere cambio (usará reset de contraseña)
       };
       
       // Crear documento con el UID específico del usuario
@@ -162,7 +165,17 @@ ${companySettings?.companyName || 'Sistema de Gestión'}`;
         addNotification(`Usuario ${userData.email} creado exitosamente con contraseña temporal.`, "success");
       }
       
-      // No cerrar sesión del admin
+      // IMPORTANTE: Cerrar sesión del nuevo usuario para que el admin no quede autenticado como él
+      // Firebase Auth automáticamente inicia sesión cuando se crea un usuario
+      // Verificar si el usuario actual es el nuevo usuario (no el admin)
+      const currentUserAfterCreation = auth.currentUser;
+      if (currentUserAfterCreation && currentUserAfterCreation.uid === user.uid) {
+        // El usuario actual es el nuevo usuario creado, cerrar sesión
+        await signOut(auth);
+        console.log('✅ Sesión del nuevo usuario cerrada');
+        // Nota: El admin necesitará volver a iniciar sesión
+        // Esto se manejará automáticamente por App.jsx cuando detecte que no hay usuario autenticado
+      }
       
     } catch (error) {
       console.error("Error creating user:", error);

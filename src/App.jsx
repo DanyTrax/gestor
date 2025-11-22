@@ -227,7 +227,12 @@ function AppContent() {
 
   if (loading) return <div className="flex items-center justify-center min-h-screen">Cargando...</div>;
   
-  if (userProfile?.requiresPasswordChange) {
+  // Solo mostrar modal de cambio de contraseña si:
+  // 1. El usuario tiene requiresPasswordChange: true
+  // 2. Y NO es un admin (los admins no deberían ver este modal al crear usuarios)
+  if (userProfile?.requiresPasswordChange && 
+      userProfile?.role !== 'superadmin' && 
+      userProfile?.role !== 'admin') {
     return <PasswordChangeModal isOpen={true} onSave={handlePasswordSave} />
   }
 
