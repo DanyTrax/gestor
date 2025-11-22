@@ -3,6 +3,8 @@ import { useNotification } from '../../../contexts/NotificationContext';
 import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 import { db, appId } from '../../../config/firebase';
 import { sendEmail, loadEmailConfig } from '../../../services/emailService';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../../../config/firebase';
 
 function UserNotificationModal({ isOpen, onClose, user, companySettings }) {
   const { addNotification } = useNotification();
@@ -109,18 +111,38 @@ Equipo de Soporte`;
 
     setLoading(true);
     try {
-      console.log('📧 [USUARIOS] Enviando notificación de activación al usuario');
+      console.log('📧 [USUARIOS] Enviando notificación de activación y reset de contraseña al usuario');
+      
+      // Enviar email de reset de contraseña de Firebase (esto genera un enlace seguro)
+      try {
+        await sendPasswordResetEmail(auth, user.email, {
+          url: `${window.location.origin}`,
+          handleCodeInApp: false
+        });
+        console.log('✅ Email de reset de contraseña enviado por Firebase');
+      } catch (resetError) {
+        console.warn('⚠️ No se pudo enviar email de reset de contraseña:', resetError);
+        // Continuar de todas formas con el email de notificación
+      }
       
       // Cargar configuración de email
       await loadEmailConfig();
+      
+      // Preparar mensaje con instrucciones de creación de contraseña
+      let finalBody = body;
+      
+      // Si el mensaje no incluye instrucciones de contraseña, agregarlas
+      if (!finalBody.includes('contraseña') && !finalBody.includes('password') && !finalBody.includes('Password')) {
+        finalBody += `\n\n🔐 CREAR TU CONTRASEÑA:\n\nPara completar tu registro y acceder al sistema, necesitas crear tu contraseña personal.\n\n📝 PASOS PARA CREAR TU CONTRASEÑA:\n\n1. Revisa tu correo electrónico, recibirás un email de Firebase con el asunto "Restablece tu contraseña"\n2. Haz clic en el enlace "Restablecer contraseña" de ese email\n3. Ingresa una contraseña segura (mínimo 6 caracteres)\n4. Confirma tu contraseña\n5. Una vez creada tu contraseña, serás redirigido al inicio de sesión\n6. Inicia sesión con tu email (${user.email}) y la contraseña que acabas de crear\n\n⚠️ IMPORTANTE:\n- El enlace para crear tu contraseña expirará en 1 hora\n- Si el enlace expira, contacta con soporte para generar uno nuevo\n- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`;
+      }
       
       // Enviar email usando el servicio
       await sendEmail({
         to: user.email,
         toName: user.fullName || user.email,
         subject: subject.trim(),
-        html: body.replace(/\n/g, '<br>'),
-        text: body,
+        html: finalBody.replace(/\n/g, '<br>'),
+        text: finalBody,
         type: 'Activación',
         recipientType: 'Cliente',
         module: 'users',
@@ -133,7 +155,7 @@ Equipo de Soporte`;
         }
       });
 
-      addNotification(`Notificación de activación enviada a ${user.email}`, "success");
+      addNotification(`Notificación de activación y creación de contraseña enviadas a ${user.email}`, "success");
       onClose();
     } catch (error) {
       console.error('Error enviando notificación de activación:', error);

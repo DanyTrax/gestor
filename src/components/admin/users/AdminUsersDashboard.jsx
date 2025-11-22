@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNotification } from '../../../contexts/NotificationContext';
 import { collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy, addDoc, setDoc, Timestamp, getDocs, where } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { sendEmail, loadEmailConfig } from '../../../services/emailService';
 import { auth, db, appId } from '../../../config/firebase';
 import { PlusIcon, SearchIcon } from '../../icons';
@@ -52,8 +52,18 @@ function AdminUsersDashboard({ userRole, companySettings }) {
       }
       
       // Crear usuario en Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
-      const user = userCredential.user;
+      let user;
+      if (userData.notify && !userData.password) {
+        // Si se va a notificar, crear usuario con contraseña temporal aleatoria
+        // Luego se enviará el email de reset de contraseña
+        const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
+        const userCredential = await createUserWithEmailAndPassword(auth, userData.email, tempPassword);
+        user = userCredential.user;
+      } else {
+        // Si no se notifica, usar la contraseña proporcionada
+        const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+        user = userCredential.user;
+      }
       
       // Crear documento en Firestore con todos los datos
       const userDocData = {
@@ -74,64 +84,82 @@ function AdminUsersDashboard({ userRole, companySettings }) {
       // Enviar notificación de email si está habilitado
       if (userData.notify) {
         try {
-          console.log('📧 [USUARIOS] Enviando email de bienvenida al nuevo usuario');
+          console.log('📧 [USUARIOS] Enviando email de bienvenida y reset de contraseña al nuevo usuario');
+          
+          // Enviar email de reset de contraseña de Firebase (esto genera un enlace seguro)
+          await sendPasswordResetEmail(auth, userData.email, {
+            url: `${window.location.origin}`,
+            handleCodeInApp: false
+          });
           
           // Cargar configuración de email
           await loadEmailConfig();
           
-          // Generar link de activación
-          const activationLink = `${window.location.origin}?uid=${user.uid}&email=${encodeURIComponent(userData.email)}&name=${encodeURIComponent(userData.fullName || '')}&id=${encodeURIComponent(userData.identification || '')}`;
-          
-          // Preparar mensaje de bienvenida
+          // Preparar mensaje de bienvenida con instrucciones
           const emailSubject = `Bienvenido a ${companySettings?.companyName || 'nuestro sistema'}`;
           const emailBody = `Hola ${userData.fullName || userData.email},
 
+¡Bienvenido a ${companySettings?.companyName || 'nuestro sistema'}!
+
 Tu cuenta ha sido creada exitosamente en nuestro sistema de gestión.
 
-Datos de acceso:
-• Email: ${userData.email}
-• Contraseña temporal: ${userData.password}
+📧 Tu email de acceso: ${userData.email}
 
-IMPORTANTE: Debes cambiar tu contraseña al iniciar sesión por primera vez.
+🔐 CREAR TU CONTRASEÑA:
 
-${userData.status === 'pending' ? `Para activar tu cuenta, haz clic en el siguiente enlace:
-${activationLink}
+Para completar tu registro y acceder al sistema, necesitas crear tu contraseña personal.
 
-` : 'Tu cuenta está activa y lista para usar.\n\n'}Una vez que inicies sesión, podrás:
+📝 PASOS PARA CREAR TU CONTRASEÑA:
+
+1. Revisa tu correo electrónico, recibirás un email de Firebase con el asunto "Restablece tu contraseña"
+2. Haz clic en el enlace "Restablecer contraseña" de ese email
+3. Ingresa una contraseña segura (mínimo 6 caracteres)
+4. Confirma tu contraseña
+5. Una vez creada tu contraseña, serás redirigido al inicio de sesión
+6. Inicia sesión con tu email (${userData.email}) y la contraseña que acabas de crear
+
+⚠️ IMPORTANTE:
+- El enlace para crear tu contraseña expirará en 1 hora
+- Si el enlace expira, contacta con soporte para generar uno nuevo
+- Tu cuenta está activa y lista para usar una vez que crees tu contraseña
+
+Una vez que inicies sesión, podrás:
 • Ver tus servicios contratados
 • Crear tickets de soporte
 • Gestionar tu perfil y pagos
 
+Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.
+
 ¡Bienvenido!
 
-Equipo de Soporte`;
+Equipo de Soporte
+${companySettings?.companyName || 'Sistema de Gestión'}`;
 
-          // Enviar email usando el servicio
+          // Enviar email de bienvenida usando el servicio
           await sendEmail({
             to: userData.email,
             toName: userData.fullName || userData.email,
             subject: emailSubject,
             html: emailBody.replace(/\n/g, '<br>'),
             text: emailBody,
-            type: 'Activación',
+            type: 'Bienvenida',
             recipientType: 'Cliente',
             module: 'users',
             event: 'newUser',
             metadata: {
               userId: user.uid,
               userEmail: userData.email,
-              userRole: userData.role,
-              activationLink: activationLink
+              userRole: userData.role
             }
           });
           
-          addNotification(`Usuario ${userData.email} creado exitosamente. Email de bienvenida enviado.`, "success");
+          addNotification(`Usuario ${userData.email} creado exitosamente. Emails de bienvenida y creación de contraseña enviados.`, "success");
         } catch (emailError) {
-          console.error('Error enviando email de bienvenida:', emailError);
-          addNotification(`Usuario ${userData.email} creado exitosamente, pero no se pudo enviar el email: ${emailError.message}`, "warning");
+          console.error('Error enviando emails:', emailError);
+          addNotification(`Usuario ${userData.email} creado exitosamente, pero no se pudieron enviar los emails: ${emailError.message}`, "warning");
         }
       } else {
-        addNotification(`Usuario ${userData.email} creado exitosamente.`, "success");
+        addNotification(`Usuario ${userData.email} creado exitosamente con contraseña temporal.`, "success");
       }
       
       // No cerrar sesión del admin

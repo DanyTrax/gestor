@@ -42,15 +42,21 @@ function CreateUserModal({ isOpen, onClose, onSave }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if(password.length < 6) {
+    // Si notify está marcado, no requerir contraseña
+    if (!notify && password.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    // Si notify NO está marcado, requerir contraseña
+    if (!notify && !password) {
+      setError("Debes asignar una contraseña temporal cuando no se notifica por correo.");
       return;
     }
     setError('');
     try {
       await onSave({ 
         email, 
-        password, 
+        password: notify ? null : password, // Si notify=true, no enviar contraseña
         notify, 
         fullName, 
         identification, 
@@ -71,7 +77,23 @@ function CreateUserModal({ isOpen, onClose, onSave }) {
         <h2 className="text-2xl font-bold mb-6">Crear Nuevo Usuario</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email del nuevo usuario" className="w-full p-2 border rounded-md" required />
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseña temporal" className="w-full p-2 border rounded-md" required />
+          {!notify && (
+            <input 
+              type="password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              placeholder="Contraseña temporal" 
+              className="w-full p-2 border rounded-md" 
+              required 
+            />
+          )}
+          {notify && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                <strong>Nota:</strong> Al marcar "Notificar al usuario por correo", el usuario recibirá un enlace para crear su propia contraseña de forma segura. No es necesario asignar una contraseña temporal.
+              </p>
+            </div>
+          )}
           <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Nombre Completo" className="w-full p-2 border rounded-md" />
           <input value={identification} onChange={e => setIdentification(e.target.value)} placeholder="Identificación" className="w-full p-2 border rounded-md" />
           

@@ -78,6 +78,11 @@ function AdminTemplatesDashboard() {
       subject: "Bienvenido a {companyName} - Servicio {description}",
       body: "Estimado/a {clientName},\n\n¡Bienvenido a {companyName}!\n\nNos complace confirmar que su servicio '{description}' ha sido activado exitosamente.\n\nDetalles del servicio:\n- Descripción: {description}\n- Monto: {amount} {currency}\n- Próximo vencimiento: {dueDate}\n\nPuede acceder a su portal de cliente en cualquier momento para gestionar su cuenta y realizar pagos.\n\nSi tiene alguna pregunta, no dude en contactarnos.\n\n¡Gracias por elegirnos!\n\nAtentamente,\n{companyName}"
     },
+    nuevoUsuario: {
+      name: "Bienvenida - Nuevo Usuario",
+      subject: "Bienvenido a {companyName} - Crea tu contraseña",
+      body: "Estimado/a {clientName},\n\n¡Bienvenido a {companyName}!\n\nTu cuenta ha sido creada exitosamente en nuestro sistema de gestión.\n\n📧 Tu email de acceso: {clientEmail}\n\n🔐 CREAR TU CONTRASEÑA:\n\nPara completar tu registro y acceder al sistema, necesitas crear tu contraseña personal.\n\n📝 PASOS PARA CREAR TU CONTRASEÑA:\n\n1. Revisa tu correo electrónico, recibirás un email de Firebase con el asunto \"Restablece tu contraseña\"\n2. Haz clic en el enlace \"Restablecer contraseña\" de ese email\n3. Ingresa una contraseña segura (mínimo 6 caracteres)\n4. Confirma tu contraseña\n5. Una vez creada tu contraseña, serás redirigido al inicio de sesión\n6. Inicia sesión con tu email ({clientEmail}) y la contraseña que acabas de crear\n\n⚠️ IMPORTANTE:\n- El enlace para crear tu contraseña expirará en 1 hora\n- Si el enlace expira, contacta con soporte para generar uno nuevo\n- Tu cuenta está activa y lista para usar una vez que crees tu contraseña\n\nUna vez que inicies sesión, podrás:\n• Ver tus servicios contratados\n• Crear tickets de soporte\n• Gestionar tu perfil y pagos\n\nSi tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.\n\n¡Bienvenido!\n\nEquipo de Soporte\n{companyName}"
+    },
 
     // Plantillas para ADMINISTRADORES
     adminPreVencimiento: {
@@ -453,6 +458,14 @@ function AdminTemplatesDashboard() {
               >
                 <div className="font-medium text-purple-900">Bienvenida</div>
                 <div className="text-sm text-purple-700">Mensaje de bienvenida a nuevos clientes</div>
+              </button>
+              
+              <button 
+                onClick={() => handleSuggestionClick(templateSuggestions.nuevoUsuario)} 
+                className="w-full text-left p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+              >
+                <div className="font-medium text-indigo-900">Nuevo Usuario</div>
+                <div className="text-sm text-indigo-700">Bienvenida con instrucciones para crear contraseña</div>
               </button>
             </div>
           </div>
