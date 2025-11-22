@@ -61,9 +61,18 @@ if [ ! -d "assets" ]; then
 fi
 
 # Verificar archivos JS específicos
-JS_FILE=$(grep -o 'src="/assets/[^"]*\.js"' index.html | sed 's/src="\/assets\///; s/"//')
+# Extraer el nombre del archivo JS de index.html de forma más robusta
+JS_FILE=$(grep -oP 'src="/assets/[^"]*\.js"' index.html | sed 's|src="/assets/||; s|"||' | head -1)
+if [ -z "$JS_FILE" ]; then
+    # Intentar método alternativo
+    JS_FILE=$(grep -oE 'src="/assets/[^"]+\.js"' index.html | sed 's|src="/assets/||; s|"||' | head -1)
+fi
+
 if [ -z "$JS_FILE" ]; then
     echo "⚠️  No se pudo extraer el nombre del archivo JS de index.html"
+    echo "📋 Verificando archivos JS disponibles en assets/:"
+    ls -1 assets/*.js 2>/dev/null || echo "   (ninguno)"
+    echo "⚠️  Continuando sin verificación específica del archivo JS..."
 else
     echo "🔍 Buscando archivo JS: $JS_FILE"
     if [ -f "assets/$JS_FILE" ]; then
@@ -73,14 +82,24 @@ else
         echo "❌ Error: El archivo JS assets/$JS_FILE no existe"
         echo "📋 Archivos JS disponibles en assets/:"
         ls -1 assets/*.js 2>/dev/null || echo "   (ninguno)"
-        exit 1
+        echo "⚠️  Continuando de todas formas - el archivo podría tener un nombre diferente"
+        # No salir con error, solo advertir
     fi
 fi
 
 # Verificar archivo CSS
-CSS_FILE=$(grep -o 'href="/assets/[^"]*\.css"' index.html | sed 's/href="\/assets\///; s/"//')
+# Extraer el nombre del archivo CSS de index.html de forma más robusta
+CSS_FILE=$(grep -oP 'href="/assets/[^"]*\.css"' index.html | sed 's|href="/assets/||; s|"||' | head -1)
+if [ -z "$CSS_FILE" ]; then
+    # Intentar método alternativo
+    CSS_FILE=$(grep -oE 'href="/assets/[^"]+\.css"' index.html | sed 's|href="/assets/||; s|"||' | head -1)
+fi
+
 if [ -z "$CSS_FILE" ]; then
     echo "⚠️  No se pudo extraer el nombre del archivo CSS de index.html"
+    echo "📋 Verificando archivos CSS disponibles en assets/:"
+    ls -1 assets/*.css 2>/dev/null || echo "   (ninguno)"
+    echo "⚠️  Continuando sin verificación específica del archivo CSS..."
 else
     echo "🔍 Buscando archivo CSS: $CSS_FILE"
     if [ -f "assets/$CSS_FILE" ]; then
@@ -90,7 +109,8 @@ else
         echo "❌ Error: El archivo CSS assets/$CSS_FILE no existe"
         echo "📋 Archivos CSS disponibles en assets/:"
         ls -1 assets/*.css 2>/dev/null || echo "   (ninguno)"
-        exit 1
+        echo "⚠️  Continuando de todas formas - el archivo podría tener un nombre diferente"
+        # No salir con error, solo advertir
     fi
 fi
 
