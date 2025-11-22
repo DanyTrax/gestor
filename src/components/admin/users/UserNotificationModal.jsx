@@ -14,20 +14,54 @@ function UserNotificationModal({ isOpen, onClose, user, companySettings }) {
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const defaultMessage = `Hola ${user?.fullName || user?.email},
+  // Generar mensaje por defecto con instrucciones de reset de contraseña
+  const generateDefaultMessage = () => {
+    const loginUrl = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
+    return `Hola ${user?.fullName || user?.email},
 
 Tu cuenta ha sido activada exitosamente en nuestro sistema de gestión de cobros.
 
-Ahora puedes:
+🔐 CREAR O CAMBIAR TU CONTRASEÑA:
+
+Para acceder al sistema, necesitas crear o cambiar tu contraseña usando el enlace que recibirás por correo.
+
+📝 INSTRUCCIONES PASO A PASO:
+
+1. Revisa tu correo electrónico (incluyendo la carpeta de spam)
+2. Busca un email de Firebase con el asunto "Restablece tu contraseña" o "Reset your password"
+3. Haz clic en el botón o enlace "Restablecer contraseña" dentro de ese email
+4. Serás redirigido a nuestro sistema en: ${loginUrl}
+5. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)
+6. Confirma tu contraseña ingresándola nuevamente
+7. Haz clic en "Restablecer Contraseña"
+8. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión
+9. Inicia sesión con:
+   - Email: ${user?.email}
+   - Contraseña: La que acabas de crear
+
+🔗 ENLACE DIRECTO AL SISTEMA:
+${loginUrl}
+
+⚠️ IMPORTANTE:
+- El enlace para crear/cambiar tu contraseña expirará en 1 hora
+- Si el enlace expira o no recibes el email, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"
+- Tu cuenta está activa y lista para usar una vez que crees tu contraseña
+
+Una vez que inicies sesión, podrás:
 • Ver tus servicios contratados
 • Crear tickets de soporte
-• Gestionar tu perfil
+• Gestionar tu perfil y pagos
+• Acceder a todas las funcionalidades del sistema
 
-Para acceder, simplemente inicia sesión con tu email y contraseña.
+Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.
 
 ¡Bienvenido!
 
-Equipo de Soporte`;
+Equipo de Soporte
+${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
+  };
+
+  const defaultMessage = generateDefaultMessage();
 
   const defaultSubject = `Cuenta Activada - ${companySettings?.companyName || 'Sistema de Gestión de Cobros'}`;
 
@@ -75,12 +109,14 @@ Equipo de Soporte`;
         let templateBody = template.body;
         let templateSubject = template.subject;
         
+        const loginUrl = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
         const replacements = {
           '{clientName}': user?.fullName || user?.email || '',
           '{clientEmail}': user?.email || '',
           '{companyName}': companySettings?.companyName || 'Sistema de Gestión de Cobros',
-          '{loginUrl}': typeof window !== 'undefined' ? window.location.origin : '',
-          '{clientPortalUrl}': typeof window !== 'undefined' ? window.location.origin : ''
+          '{loginUrl}': loginUrl,
+          '{clientPortalUrl}': loginUrl,
+          '{resetPasswordUrl}': loginUrl + ' (Recibirás el enlace completo por email de Firebase)'
         };
         
         Object.entries(replacements).forEach(([key, value]) => {
@@ -148,11 +184,17 @@ Equipo de Soporte`;
       await loadEmailConfig();
       
       // Preparar mensaje con instrucciones de creación de contraseña
+      const loginUrl = `${window.location.origin}${window.location.pathname}`;
       let finalBody = body;
       
-      // Si el mensaje no incluye instrucciones de contraseña, agregarlas
-      if (!finalBody.includes('contraseña') && !finalBody.includes('password') && !finalBody.includes('Password')) {
-        finalBody += `\n\n🔐 CREAR TU CONTRASEÑA:\n\nPara completar tu registro y acceder al sistema, necesitas crear tu contraseña personal.\n\n📝 PASOS PARA CREAR TU CONTRASEÑA:\n\n1. Revisa tu correo electrónico, recibirás un email de Firebase con el asunto "Restablece tu contraseña"\n2. Haz clic en el enlace "Restablecer contraseña" de ese email\n3. Ingresa una contraseña segura (mínimo 6 caracteres)\n4. Confirma tu contraseña\n5. Una vez creada tu contraseña, serás redirigido al inicio de sesión\n6. Inicia sesión con tu email (${user.email}) y la contraseña que acabas de crear\n\n⚠️ IMPORTANTE:\n- El enlace para crear tu contraseña expirará en 1 hora\n- Si el enlace expira, contacta con soporte para generar uno nuevo\n- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`;
+      // Si el mensaje no incluye instrucciones de contraseña o URL, agregarlas automáticamente
+      const hasPasswordInstructions = finalBody.includes('contraseña') || finalBody.includes('password') || finalBody.includes('Password');
+      const hasUrl = finalBody.includes(loginUrl) || finalBody.includes('{loginUrl}') || finalBody.includes('{resetPasswordUrl}');
+      
+      if (!hasPasswordInstructions || !hasUrl) {
+        const passwordInstructions = `\n\n🔐 CREAR O CAMBIAR TU CONTRASEÑA:\n\nPara acceder al sistema, necesitas crear o cambiar tu contraseña usando el enlace que recibirás por correo.\n\n📝 INSTRUCCIONES PASO A PASO:\n\n1. Revisa tu correo electrónico (incluyendo la carpeta de spam)\n2. Busca un email de Firebase con el asunto "Restablece tu contraseña" o "Reset your password"\n3. Haz clic en el botón o enlace "Restablecer contraseña" dentro de ese email\n4. Serás redirigido a nuestro sistema en: ${loginUrl}\n5. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)\n6. Confirma tu contraseña ingresándola nuevamente\n7. Haz clic en "Restablecer Contraseña"\n8. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión\n9. Inicia sesión con tu email (${user.email}) y la contraseña que acabas de crear\n\n🔗 ENLACE DIRECTO AL SISTEMA:\n${loginUrl}\n\n⚠️ IMPORTANTE:\n- El enlace para crear/cambiar tu contraseña expirará en 1 hora\n- Si el enlace expira o no recibes el email, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"\n- Tu cuenta está activa y lista para usar una vez que crees tu contraseña`;
+        
+        finalBody += passwordInstructions;
       }
       
       // Enviar email usando el servicio

@@ -122,7 +122,8 @@ function AdminUsersDashboard({ userRole, companySettings }) {
           // Cargar configuración de email
           await loadEmailConfig();
           
-          // Preparar mensaje de bienvenida con instrucciones
+          // Preparar mensaje de bienvenida con instrucciones claras sobre el enlace de reset
+          const loginUrl = `${window.location.origin}${window.location.pathname}`;
           const emailSubject = `Bienvenido a ${companySettings?.companyName || 'nuestro sistema'}`;
           const emailBody = `Hola ${userData.fullName || userData.email},
 
@@ -132,28 +133,38 @@ Tu cuenta ha sido creada exitosamente en nuestro sistema de gestión.
 
 📧 Tu email de acceso: ${userData.email}
 
-🔐 CREAR TU CONTRASEÑA:
+🔐 CREAR TU CONTRASEÑA - ACCESO AL SISTEMA:
 
-Para completar tu registro y acceder al sistema, necesitas crear tu contraseña personal.
+Para completar tu registro y acceder al sistema, necesitas crear tu contraseña personal usando el enlace que recibirás por correo.
 
-📝 PASOS PARA CREAR TU CONTRASEÑA:
+📝 INSTRUCCIONES PASO A PASO:
 
-1. Revisa tu correo electrónico, recibirás un email de Firebase con el asunto "Restablece tu contraseña"
-2. Haz clic en el enlace "Restablecer contraseña" de ese email
-3. Ingresa una contraseña segura (mínimo 6 caracteres)
-4. Confirma tu contraseña
-5. Una vez creada tu contraseña, serás redirigido al inicio de sesión
-6. Inicia sesión con tu email (${userData.email}) y la contraseña que acabas de crear
+1. Revisa tu correo electrónico (incluyendo la carpeta de spam)
+2. Busca un email de Firebase con el asunto "Restablece tu contraseña" o "Reset your password"
+3. Haz clic en el botón o enlace "Restablecer contraseña" dentro de ese email
+4. Serás redirigido a nuestro sistema en: ${loginUrl}
+5. En la página de restablecimiento, ingresa una contraseña segura (mínimo 6 caracteres)
+6. Confirma tu contraseña ingresándola nuevamente
+7. Haz clic en "Restablecer Contraseña"
+8. Una vez creada tu contraseña, serás redirigido automáticamente al inicio de sesión
+9. Inicia sesión con:
+   - Email: ${userData.email}
+   - Contraseña: La que acabas de crear
+
+🔗 ENLACE DIRECTO AL SISTEMA:
+${loginUrl}
 
 ⚠️ IMPORTANTE:
 - El enlace para crear tu contraseña expirará en 1 hora
-- Si el enlace expira, contacta con soporte para generar uno nuevo
+- Si el enlace expira o no recibes el email, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"
 - Tu cuenta está activa y lista para usar una vez que crees tu contraseña
+- Si tienes problemas, contacta con soporte
 
 Una vez que inicies sesión, podrás:
 • Ver tus servicios contratados
 • Crear tickets de soporte
 • Gestionar tu perfil y pagos
+• Acceder a todas las funcionalidades del sistema
 
 Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.
 
