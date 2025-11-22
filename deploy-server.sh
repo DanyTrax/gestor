@@ -11,11 +11,19 @@ echo ""
 
 cd ~/clients.dowgroupcol.com || { echo "❌ Error: No se pudo acceder al directorio"; exit 1; }
 
-# 1. Hacer pull para obtener los archivos compilados
+# 1. Verificar si hay cambios locales y manejarlos
+echo "🔍 Verificando cambios locales..."
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "⚠️  Se detectaron cambios locales. Guardándolos en stash..."
+    git stash push -m "Cambios locales antes de pull - $(date +%Y%m%d_%H%M%S)" || true
+    echo "✅ Cambios guardados en stash"
+fi
+
+# 2. Hacer pull para obtener los archivos compilados
 echo "📥 Haciendo git pull..."
 git pull origin main || { echo "❌ Error en git pull"; exit 1; }
 
-# 2. Verificar que dist/ existe y tiene contenido
+# 3. Verificar que dist/ existe y tiene contenido
 echo "🔍 Verificando dist/..."
 if [ ! -d "dist" ]; then
     echo "❌ Error: La carpeta dist/ no existe"
@@ -38,7 +46,7 @@ if [ "$FILE_COUNT" -eq 0 ]; then
     exit 1
 fi
 
-# 3. Hacer backup de archivos actuales (opcional)
+# 4. Hacer backup de archivos actuales (opcional)
 echo "💾 Haciendo backup de archivos actuales..."
 if [ -d "assets" ]; then
     mv assets assets.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
@@ -47,11 +55,11 @@ if [ -f "index.html" ]; then
     cp index.html index.html.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
 fi
 
-# 4. Copiar archivos desde dist/
+# 5. Copiar archivos desde dist/
 echo "📋 Copiando archivos desde dist/..."
 cp -r dist/* . || { echo "❌ Error al copiar archivos"; exit 1; }
 
-# 5. Verificar que los archivos se copiaron
+# 6. Verificar que los archivos se copiaron
 echo "🔍 Verificando archivos copiados..."
 if [ ! -f "index.html" ]; then
     echo "❌ Error: index.html no se copió"
@@ -81,21 +89,21 @@ else
     echo "✅ Encontrado archivo CSS principal"
 fi
 
-# 6. Configurar permisos
+# 7. Configurar permisos
 echo "🔐 Configurando permisos..."
 chmod 644 index.html
 chmod 644 .htaccess 2>/dev/null || true
 chmod -R 755 assets/
 find assets/ -type f -exec chmod 644 {} \;
 
-# 7. Verificar .htaccess
+# 8. Verificar .htaccess
 if [ -f ".htaccess" ]; then
     echo "✅ .htaccess encontrado"
 else
     echo "⚠️  .htaccess no encontrado"
 fi
 
-# 8. Resumen
+# 9. Resumen
 echo ""
 echo "✅ Despliegue completado exitosamente!"
 echo ""
