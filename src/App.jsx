@@ -12,6 +12,7 @@ import AdminDashboard from './components/dashboard/AdminDashboard';
 import ClientDashboard from './components/dashboard/ClientDashboard';
 import AuthPage from './components/auth/AuthPage';
 import PasswordChangeModal from './components/auth/PasswordChangeModal';
+import PasswordResetPage from './components/auth/PasswordResetPage';
 import CompleteProfileModal from './components/auth/CompleteProfileModal';
 import InitialSetup from './components/setup/InitialSetup';
 
@@ -236,6 +237,26 @@ function AppContent() {
 
   if (loading) return <div className="flex items-center justify-center min-h-screen">Cargando...</div>;
   
+  // Verificar si hay un código de reset de contraseña en la URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const resetCode = urlParams.get('oobCode');
+  const resetMode = urlParams.get('mode');
+  const isPasswordReset = resetCode && resetMode === 'resetPassword';
+  
+  // Si hay un código de reset, mostrar la página de reset
+  if (isPasswordReset) {
+    return (
+      <PasswordResetPage 
+        companySettings={companySettings}
+        onResetComplete={() => {
+          // Limpiar URL y recargar para volver al login
+          window.history.replaceState({}, document.title, window.location.pathname);
+          window.location.reload();
+        }}
+      />
+    );
+  }
+  
   // Solo mostrar modal de cambio de contraseña si:
   // 1. El usuario tiene requiresPasswordChange: true
   // 2. Y NO es un admin (los admins no deberían ver este modal al crear usuarios)
@@ -246,7 +267,6 @@ function AppContent() {
   }
 
   // Verificar si hay parámetros de activación en la URL
-  const urlParams = new URLSearchParams(window.location.search);
   const activationUid = urlParams.get('uid');
   const isActivationLink = activationUid && activationUid === user?.uid;
 

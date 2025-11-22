@@ -105,8 +105,8 @@ function AdminUsersDashboard({ userRole, companySettings }) {
           // Enviar email de reset de contraseña de Firebase (esto genera un enlace seguro)
           // Esto funciona incluso si el usuario no está autenticado
           await sendPasswordResetEmail(auth, userData.email, {
-            url: `${window.location.origin}`,
-            handleCodeInApp: false
+            url: `${window.location.origin}${window.location.pathname}`,
+            handleCodeInApp: true
           });
           
           // Cargar configuración de email

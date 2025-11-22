@@ -127,8 +127,8 @@ Equipo de Soporte`;
       // Enviar email de reset de contraseña de Firebase (esto genera un enlace seguro)
       try {
         await sendPasswordResetEmail(auth, user.email, {
-          url: `${window.location.origin}`,
-          handleCodeInApp: false
+          url: `${window.location.origin}${window.location.pathname}`,
+          handleCodeInApp: true
         });
         console.log('✅ Email de reset de contraseña enviado por Firebase');
       } catch (resetError) {

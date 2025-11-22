@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNotification } from '../../contexts/NotificationContext';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail } from 'firebase/auth';
 import { collection, getDocs, setDoc, doc, query, where, Timestamp } from 'firebase/firestore';
 import { auth, db, appId } from '../../config/firebase';
 
@@ -9,6 +9,9 @@ function AuthPage({ companySettings }) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,6 +49,36 @@ function AuthPage({ companySettings }) {
       }
     } catch (err) { addNotification(err.message, "error"); }
   };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      addNotification("Por favor, ingresa tu email", "error");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail, {
+        url: `${window.location.origin}${window.location.pathname}`,
+        handleCodeInApp: true
+      });
+      addNotification(`Se ha enviado un enlace de restablecimiento a ${resetEmail}. Revisa tu correo.`, "success");
+      setShowResetModal(false);
+      setResetEmail('');
+    } catch (error) {
+      console.error('Error enviando email de reset:', error);
+      let errorMessage = 'Error al enviar el email de restablecimiento.';
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No se encontró una cuenta con ese email.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'El email proporcionado no es válido.';
+      }
+      addNotification(errorMessage, "error");
+    } finally {
+      setResetLoading(false);
+    }
+  };
   
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -61,9 +94,59 @@ function AuthPage({ companySettings }) {
         <form onSubmit={handleSubmit}>
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full p-2 mb-4 border rounded" required />
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseña" className="w-full p-2 mb-4 border rounded" required />
+          {isLogin && (
+            <button
+              type="button"
+              onClick={() => setShowResetModal(true)}
+              className="w-full text-sm text-blue-600 hover:underline mb-2 text-right"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          )}
           <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">{isLogin ? 'Entrar' : 'Registrarse'}</button>
         </form>
         <button onClick={() => setIsLogin(!isLogin)} className="w-full mt-4 text-sm text-blue-600 hover:underline">{isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}</button>
+        
+        {/* Modal para solicitar reset de contraseña */}
+        {showResetModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold mb-4">Restablecer Contraseña</h3>
+              <p className="text-gray-600 mb-4">
+                Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.
+              </p>
+              <form onSubmit={handleForgotPassword}>
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={e => setResetEmail(e.target.value)}
+                  placeholder="Email"
+                  className="w-full p-2 mb-4 border rounded"
+                  required
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowResetModal(false);
+                      setResetEmail('');
+                    }}
+                    className="flex-1 bg-gray-200 text-gray-800 p-2 rounded hover:bg-gray-300"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="flex-1 bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {resetLoading ? 'Enviando...' : 'Enviar Enlace'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
