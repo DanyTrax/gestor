@@ -1,0 +1,24 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  
+  # Excluir archivos estáticos y endpoints PHP de la reescritura
+  RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ [OR]
+  RewriteCond %{REQUEST_URI} ^/assets/ [OR]
+  RewriteCond %{REQUEST_URI} send-email\.php [OR]
+  RewriteCond %{REQUEST_URI} send-zoho\.php [OR]
+  RewriteCond %{REQUEST_URI} upload\.php
+  RewriteRule ^ - [L]
+  
+  # Regla para evitar que los archivos y directorios existentes sean reescritos
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  # Si la solicitud no es un archivo o directorio real, redirige a index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Configurar tipos MIME correctos para archivos estáticos
+<IfModule mod_mime.c>
+  AddType application/javascript js
+  AddType text/css css
+  AddType image/svg+xml svg
+</IfModule>
