@@ -132,7 +132,15 @@ Equipo de Soporte`;
         });
         console.log('✅ Email de reset de contraseña enviado por Firebase');
       } catch (resetError) {
-        console.warn('⚠️ No se pudo enviar email de reset de contraseña:', resetError);
+        console.error('Error enviando email de reset de Firebase:', resetError);
+        if (resetError.code === 'auth/unauthorized-continue-uri') {
+          addNotification(`⚠️ El dominio ${window.location.hostname} debe estar autorizado en Firebase Console. Ver la consola para más detalles.`, "warning");
+          console.error('⚠️ IMPORTANTE: El dominio debe estar autorizado en Firebase Console:');
+          console.error('1. Ve a Firebase Console → Authentication → Settings → Authorized domains');
+          console.error(`2. Agrega el dominio: ${window.location.hostname}`);
+        } else {
+          addNotification('⚠️ No se pudo enviar el email de reset de contraseña. El email de notificación se enviará de todas formas.', "warning");
+        }
         // Continuar de todas formas con el email de notificación
       }
       

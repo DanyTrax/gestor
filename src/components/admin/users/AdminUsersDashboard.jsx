@@ -104,10 +104,20 @@ function AdminUsersDashboard({ userRole, companySettings }) {
           
           // Enviar email de reset de contraseña de Firebase (esto genera un enlace seguro)
           // Esto funciona incluso si el usuario no está autenticado
-          await sendPasswordResetEmail(auth, userData.email, {
-            url: `${window.location.origin}${window.location.pathname}`,
-            handleCodeInApp: true
-          });
+          try {
+            await sendPasswordResetEmail(auth, userData.email, {
+              url: `${window.location.origin}${window.location.pathname}`,
+              handleCodeInApp: true
+            });
+          } catch (resetError) {
+            console.error('Error enviando email de reset de Firebase:', resetError);
+            if (resetError.code === 'auth/unauthorized-continue-uri') {
+              addNotification(`⚠️ El dominio ${window.location.hostname} debe estar autorizado en Firebase Console. El usuario fue creado pero el email de reset no se pudo enviar.`, "warning");
+            } else {
+              addNotification(`⚠️ No se pudo enviar el email de reset de contraseña. El usuario fue creado.`, "warning");
+            }
+            // Continuar de todas formas con el email de notificación personalizado
+          }
           
           // Cargar configuración de email
           await loadEmailConfig();

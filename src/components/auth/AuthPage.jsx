@@ -73,6 +73,11 @@ function AuthPage({ companySettings }) {
         errorMessage = 'No se encontró una cuenta con ese email.';
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'El email proporcionado no es válido.';
+      } else if (error.code === 'auth/unauthorized-continue-uri') {
+        errorMessage = 'El dominio no está autorizado en Firebase. Contacta al administrador para configurar el dominio en Firebase Console.';
+        console.error('⚠️ IMPORTANTE: El dominio debe estar autorizado en Firebase Console:');
+        console.error('1. Ve a Firebase Console → Authentication → Settings → Authorized domains');
+        console.error(`2. Agrega el dominio: ${window.location.hostname}`);
       }
       addNotification(errorMessage, "error");
     } finally {
