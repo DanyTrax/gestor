@@ -40,7 +40,7 @@ Para completar tu registro y acceder al sistema, necesitas crear tu contraseña 
    - Contraseña: La que acabas de crear
 
 ⚠️ IMPORTANTE:
-- El enlace para crear tu contraseña expirará en 1 hora
+- El enlace para crear tu contraseña expirará en 24 horas
 - Si el enlace expira, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"
 - Tu cuenta está activa y lista para usar una vez que crees tu contraseña
 
@@ -92,7 +92,7 @@ Para acceder al sistema, necesitas crear o cambiar tu contraseña.
    - Contraseña: La que acabas de crear
 
 ⚠️ IMPORTANTE:
-- El enlace para crear/cambiar tu contraseña expirará en 1 hora
+- El enlace para crear/cambiar tu contraseña expirará en 24 horas
 - Si el enlace expira, puedes solicitar uno nuevo desde la página de inicio de sesión haciendo clic en "¿Olvidaste tu contraseña?"
 - Tu cuenta está activa y lista para usar una vez que crees tu contraseña
 
@@ -134,7 +134,7 @@ Has solicitado restablecer tu contraseña en {companyName}.
 5. Una vez restablecida tu contraseña, serás redirigido automáticamente al inicio de sesión
 
 ⚠️ IMPORTANTE:
-- El enlace expirará en 1 hora
+- El enlace expirará en 24 horas
 - Si no solicitaste este restablecimiento, ignora este email
 - Si tienes problemas, contacta con soporte
 
