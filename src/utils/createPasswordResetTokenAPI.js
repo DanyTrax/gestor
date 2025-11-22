@@ -23,6 +23,13 @@ export const createPasswordResetTokenAPI = async (email, appId, expiresInHours =
       })
     });
 
+    // Verificar si la respuesta es JSON válido
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      throw new Error(`Error del servidor (${response.status}): ${text.substring(0, 200)}`);
+    }
+
     const data = await response.json();
 
     if (!response.ok || !data.success) {

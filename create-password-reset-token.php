@@ -4,6 +4,19 @@
  * Usa Firebase Admin SDK para crear el token en Firestore sin requerir autenticación del usuario
  */
 
+// Configurar manejo de errores para devolver JSON
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
+// Función para devolver error JSON
+function returnJsonError($message, $code = 500) {
+    http_response_code($code);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => $message]);
+    exit;
+}
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -15,12 +28,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Verificar que se recibieron datos
-$input = json_decode(file_get_contents('php://input'), true);
+$rawInput = file_get_contents('php://input');
+if (empty($rawInput)) {
+    returnJsonError('No se recibieron datos', 400);
+}
+
+$input = json_decode($rawInput, true);
+if (json_last_error() !== JSON_ERROR_NONE) {
+    returnJsonError('JSON inválido: ' . json_last_error_msg(), 400);
+}
 
 if (!$input || !isset($input['email'])) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Email requerido']);
-    exit;
+    returnJsonError('Email requerido', 400);
 }
 
 $email = filter_var($input['email'], FILTER_SANITIZE_EMAIL);
@@ -31,10 +50,14 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     exit;
 }
 
-$appId = $input['appId'] ?? 'default'; // Obtener appId del request o usar default
+// Obtener appId del request, si no viene usar el de Firebase por defecto
+$appId = $input['appId'] ?? 'alojamientos-3c46b';
 
 try {
     // Cargar Firebase Admin SDK
+    if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
+        throw new Exception('Composer autoload no encontrado. Ejecuta: composer install');
+    }
     require_once __DIR__ . '/vendor/autoload.php';
     
     // Ruta al archivo de credenciales de Firebase Admin SDK
@@ -127,12 +150,21 @@ try {
     
 } catch (\Kreait\Firebase\Exception\FirebaseException $e) {
     http_response_code(500);
+    error_log('Firebase Error en create-password-reset-token.php: ' . $e->getMessage());
     echo json_encode([
         'success' => false,
         'error' => 'Error al crear token: ' . $e->getMessage()
     ]);
+} catch (\Throwable $e) {
+    http_response_code(500);
+    error_log('Error en create-password-reset-token.php: ' . $e->getMessage() . ' - Trace: ' . $e->getTraceAsString());
+    echo json_encode([
+        'success' => false,
+        'error' => 'Error: ' . $e->getMessage()
+    ]);
 } catch (Exception $e) {
     http_response_code(500);
+    error_log('Exception en create-password-reset-token.php: ' . $e->getMessage());
     echo json_encode([
         'success' => false,
         'error' => 'Error: ' . $e->getMessage()
