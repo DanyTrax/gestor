@@ -14,7 +14,7 @@ const TEMPLATES = {
 
 ¡Bienvenido a {companyName}!
 
-Tu cuenta ha sido creada exitosamente en App Gestor.
+Tu cuenta ha sido creada exitosamente en {companyName}.
 
 📧 Tu email de acceso: {clientEmail}
 
@@ -66,7 +66,7 @@ Equipo de Soporte
     subject: 'Cuenta Activada - {companyName} - Crea tu contraseña',
     body: `Hola {clientName},
 
-Tu cuenta ha sido activada exitosamente en App Gestor.
+Tu cuenta ha sido activada exitosamente en {companyName}.
 
 📧 Tu email de acceso: {clientEmail}
 

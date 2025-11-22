@@ -254,7 +254,7 @@ function EmailConfigTab() {
                     name="fromName"
                     value={config.fromName}
                     onChange={handleChange}
-                    placeholder="App Gestor"
+                    placeholder="Nombre de tu empresa"
                     className="w-full p-2 border rounded-md"
                   />
                 </div>

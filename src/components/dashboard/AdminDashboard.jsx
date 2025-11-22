@@ -70,7 +70,7 @@ function AdminDashboard({ user, userRole, companySettings, onLogout }) {
       case 'templates': return <AdminTemplatesDashboard />;
       case 'messages': return <AdminMessagesDashboard userRole={userRole} />;
       case 'tickets': return <AdminTicketsDashboard userRole={userRole} />;
-      case 'payments': return <AdminPaymentsDashboard userRole={userRole} />;
+      case 'payments': return <AdminPaymentsDashboard userRole={userRole} companySettings={companySettings} />;
       case 'payment-config': return <PaymentConfigDashboard />;
       case 'settings': return <AdminSettingsDashboard onLogout={onLogout} />;
       case 'services': default: return <AdminServicesDashboard userRole={userRole} />;

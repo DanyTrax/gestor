@@ -14,7 +14,7 @@ export const replaceTemplateVariables = (text, data = {}, options = {}) => {
 
   const loginUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const clientPortalUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const companyName = options.companySettings?.companyName || 'App Gestor';
+  const companyName = options.companySettings?.companyName || '';
 
   // Mapeo de variables comunes
   const defaultReplacements = {

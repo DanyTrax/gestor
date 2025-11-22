@@ -105,7 +105,7 @@ function AdminServicesDashboard({ userRole }) {
               ${htmlBody}
             </div>
             <p style="color: #666; font-size: 12px; margin-top: 20px;">
-              Este es un mensaje automático de App Gestor.
+              Este es un mensaje automático de {companyName}.
             </p>
           </div>
         `,

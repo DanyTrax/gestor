@@ -9,7 +9,7 @@ import PaymentConfigDashboard from './PaymentConfigDashboard';
 import RenewalConfigDashboard from './RenewalConfigDashboard';
 import { jsPDF } from 'jspdf';
 
-function AdminPaymentsDashboard({ userRole }) {
+function AdminPaymentsDashboard({ userRole, companySettings }) {
   const { addNotification } = useNotification();
   const [payments, setPayments] = useState([]);
   const [clients, setClients] = useState([]);
@@ -202,7 +202,7 @@ function AdminPaymentsDashboard({ userRole }) {
       // Header
       pdf.setFontSize(24);
       pdf.setTextColor(37, 99, 235); // Blue
-      pdf.text('App Gestor', 105, yPos, { align: 'center' });
+      pdf.text(companySettings?.companyName || 'App Gestor', 105, yPos, { align: 'center' });
       yPos += 10;
       pdf.setFontSize(18);
       pdf.setTextColor(102, 102, 102);

@@ -21,7 +21,7 @@ function UserNotificationModal({ isOpen, onClose, user, companySettings }) {
     const loginUrl = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
     return `Hola ${user?.fullName || user?.email},
 
-Tu cuenta ha sido activada exitosamente en App Gestor.
+Tu cuenta ha sido activada exitosamente en {companyName}.
 
 🔐 CREAR O CAMBIAR TU CONTRASEÑA:
 
@@ -60,12 +60,12 @@ Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.
 ¡Bienvenido!
 
 Equipo de Soporte
-${companySettings?.companyName || 'App Gestor'}`;
+${companySettings?.companyName || ''}`;
   };
 
   const defaultMessage = generateDefaultMessage();
 
-  const defaultSubject = `Cuenta Activada - ${companySettings?.companyName || 'App Gestor'}`;
+  const defaultSubject = `Cuenta Activada - ${companySettings?.companyName || ''}`;
 
   // Cargar plantillas para clientes
   useEffect(() => {

@@ -92,7 +92,7 @@ function AuthPage({ companySettings }) {
         emailBody = replaceTemplateVariables(template.body, replacementData, { companySettings });
       } else {
         // Fallback si no existe la plantilla
-        emailSubject = `Restablecer tu contraseña - ${companySettings?.companyName || 'App Gestor'}`;
+        emailSubject = `Restablecer tu contraseña${companySettings?.companyName ? ` - ${companySettings.companyName}` : ''}`;
         emailBody = `Hola ${userData.fullName || resetEmail},
 
 Has solicitado restablecer tu contraseña en ${companySettings?.companyName || 'nuestro sistema'}.
@@ -121,7 +121,7 @@ ${loginUrl}
 Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.
 
 Equipo de Soporte
-${companySettings?.companyName || 'App Gestor'}`;
+${companySettings?.companyName || ''}`;
       }
 
       // Enviar email usando el servicio de mensajería actual

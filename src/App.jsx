@@ -34,7 +34,7 @@ function AppContent() {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [companySettings, setCompanySettings] = useState({ companyName: 'App Gestor' });
+  const [companySettings, setCompanySettings] = useState({ companyName: '' });
   const [showInitialSetup, setShowInitialSetup] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
 
@@ -100,7 +100,7 @@ function AppContent() {
         
         if (isConfigured) {
           console.log('✅ Sistema ya configurado, saltando setup inicial');
-          setCompanySettings({ companyName: 'App Gestor' });
+          setCompanySettings({ companyName: '' });
           setIsConfigured(true);
           setShowInitialSetup(false);
         } else {
@@ -327,7 +327,7 @@ function AppContent() {
           </header>
           {userProfile?.role === 'superadmin' || userProfile?.role === 'admin' ? 
             <AdminDashboard user={user} userRole={userProfile?.role} companySettings={companySettings} onLogout={handleLogout} /> : 
-            <ClientDashboard user={user} userProfile={userProfile} />
+            <ClientDashboard user={user} userProfile={userProfile} companySettings={companySettings} />
           }
         </>
       ) : (

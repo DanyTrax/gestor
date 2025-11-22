@@ -5,7 +5,7 @@ import { db, appId } from '../../config/firebase';
 import { CreditCardIcon, SearchIcon, EyeIcon, TrashIcon } from '../icons';
 import BankTransferInstructions from '../payments/BankTransferInstructions';
 
-function ClientPaymentsDashboard({ user, userProfile }) {
+function ClientPaymentsDashboard({ user, userProfile, companySettings }) {
   const { addNotification } = useNotification();
   const [payments, setPayments] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -217,7 +217,7 @@ function ClientPaymentsDashboard({ user, userProfile }) {
       <body>
         <div class="invoice">
           <div class="header">
-            <div class="company-name">App Gestor</div>
+            <div class="company-name">${companySettings?.companyName || 'App Gestor'}</div>
             <div class="invoice-title">FACTURA</div>
           </div>
           

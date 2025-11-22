@@ -514,7 +514,7 @@ export const testEmailConfig = async (testEmail) => {
       }
     }
 
-    const testSubject = '✅ Prueba de Configuración - App Gestor';
+    const testSubject = `✅ Prueba de Configuración${emailConfig.fromName ? ` - ${emailConfig.fromName}` : ''}`;
     const testDate = new Date().toLocaleString('es-ES', {
       weekday: 'long',
       year: 'numeric',
@@ -551,7 +551,7 @@ export const testEmailConfig = async (testEmail) => {
         <div class="container">
           <div class="header">
             <h1 style="margin: 0; font-size: 28px;">📧 Prueba de Configuración</h1>
-            <p style="margin: 10px 0 0 0; opacity: 0.9;">App Gestor - Sistema de Email</p>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">${emailConfig.fromName || 'Sistema'} - Sistema de Email</p>
           </div>
           
           <div class="content">
@@ -648,8 +648,8 @@ export const testEmailConfig = async (testEmail) => {
             
             <div class="footer">
               <p style="margin: 0;">
-                <strong>App Gestor</strong><br>
-                App Gestor<br>
+                <strong>${emailConfig.fromName || 'Sistema'}</strong><br>
+                ${emailConfig.fromName || 'Sistema'}<br>
                 ${new Date().getFullYear()} © Todos los derechos reservados
               </p>
               <p style="margin: 10px 0 0 0; font-size: 11px; color: #9ca3af;">
@@ -664,7 +664,7 @@ export const testEmailConfig = async (testEmail) => {
     
     const testText = `
 ═══════════════════════════════════════════════════════
-  PRUEBA DE CONFIGURACIÓN - APP GESTOR
+  PRUEBA DE CONFIGURACIÓN${emailConfig.fromName ? ` - ${emailConfig.fromName.toUpperCase()}` : ''}
 ═══════════════════════════════════════════════════════
 
 ¡Email de Prueba Enviado Correctamente!
@@ -706,8 +706,8 @@ Estado: ✓ Enviado Exitosamente
 • Si necesitas cambiar la configuración, ve a Mensajes → Configuración de Email
 
 ───────────────────────────────────────────────────────
-App Gestor
-App Gestor
+${emailConfig.fromName || 'Sistema'}
+${emailConfig.fromName || 'Sistema'}
 ${new Date().getFullYear()} © Todos los derechos reservados
 
 Este es un email automático del sistema. Por favor, no respondas a este mensaje.

@@ -154,7 +154,7 @@ Haz clic en el siguiente enlace para crear tu contraseña:
 ${resetLink}` : 'Revisa tu correo para recibir el enlace de creación de contraseña.'}
 
 Equipo de Soporte
-${companySettings?.companyName || 'App Gestor'}`;
+${companySettings?.companyName || ''}`;
           }
 
           // Enviar email de bienvenida usando el servicio
